@@ -1,6 +1,6 @@
 import { useState } from "react";
-import FirebaseAuthService from "../FirebaseAuthService";
-import { auth } from "../FirebaseConfig";
+import FirebaseAuthService from "../FirebaseAuthService.js";
+import { auth } from "../FirebaseConfig.js";
 
 function LoginForm({ existingUser }) {
   const [email, setUsername] = useState("");
@@ -42,6 +42,9 @@ function LoginForm({ existingUser }) {
 
   return (
     <div className="login-form-container">
+      <div className="row">
+        <div className="title">Alphabet Signs API</div>
+      </div>
       {existingUser ? (
         <div className="row">
           <h3>Welcome, {existingUser.email}</h3>

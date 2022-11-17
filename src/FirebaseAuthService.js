@@ -1,4 +1,4 @@
-import { auth } from "./FirebaseConfig";
+import { auth } from "./FirebaseConfig.js";
 
 import {
   createUserWithEmailAndPassword,
