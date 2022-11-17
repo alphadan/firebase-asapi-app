@@ -16,6 +16,7 @@ function App() {
   const [orderByDirection, setOrderByDirection] = useState("asc");
   const [list, setList] = useState([]);
   const [page, setPage] = useState(1);
+  const [startPage, setStartPage] = useState(1);
 
   useEffect(() => {
     setIsLoading(true);
@@ -220,14 +221,20 @@ function App() {
                   return (
                     <div className="recipe-card" key={item.key}>
                       <div className="recipe-name">{item.reviewheadline}</div>
-                      <div className="recipe-field">{item.reviewpageid}</div>
-                      <div className="recipe-field">{item.revieworderid}</div>
-                      <div className="recipe-field">{item.reviewid}</div>
                       <div className="recipe-field">
-                        {item.reviewconfirmstatus}
+                        Product Code: {item.reviewpageid}
                       </div>
                       <div className="recipe-field">
-                        {item.reviewoverallrating}
+                        Order #: {item.revieworderid}
+                      </div>
+                      <div className="recipe-field">
+                        Date: {item.reviewcreatedate}
+                      </div>
+                      <div className="recipe-field">
+                        Review Id: {item.reviewid}
+                      </div>
+                      <div className="recipe-field">
+                        Rating: {item.reviewoverallrating}
                       </div>
                       <div className="recipe-field">{item.reviewcomments}</div>
                       <div className="recipe-field">{item.reviewnickname}</div>
@@ -243,10 +250,13 @@ function App() {
                   return (
                     <div className="recipe-card" key={item.key}>
                       <div className="recipe-name">{item.vendorname}</div>
+                      <div className="recipe-field">{item.vendorcode}</div>
                       <div className="recipe-field">{item.vendoraddress}</div>
-                      <div className="recipe-field">{item.vendorcity}</div>
-                      <div className="recipe-field">{item.vendorstate}</div>
-                      <div className="recipe-field">{item.vendorzipcode}</div>
+                      <div className="recipe-field">
+                        {item.vendorcity}, {item.vendorstate}{" "}
+                        {item.vendorzipcode}
+                      </div>
+                      <div className="recipe-field">{item.vendorphone}</div>
                     </div>
                   );
                 })}
@@ -257,14 +267,7 @@ function App() {
                 {list.map((item) => {
                   return (
                     <div className="recipe-card" key={item.key}>
-                      <div className="recipe-field">
-                        <span>Id: </span>
-                        {item.reviewstatsid}
-                      </div>
-                      <div className="recipe-field">
-                        <span>Key: </span>
-                        {item.key}
-                      </div>
+                      <div className="recipe-name">Review Stats</div>
                       <div className="recipe-field">
                         <span>Total: </span>
                         {item.total_reviews}
@@ -300,6 +303,10 @@ function App() {
                       <div className="recipe-field">
                         <span>1 Stars: </span>
                         {item.onestar}
+                      </div>
+                      <div className="recipe-field">
+                        <span>Key: </span>
+                        {item.key}
                       </div>
                     </div>
                   );
@@ -373,7 +380,7 @@ function App() {
                   Previous
                 </button>
               )}
-              {list.length < 6 ? (
+              {list.length < 8 ? (
                 ""
               ) : (
                 <button
