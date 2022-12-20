@@ -6,6 +6,10 @@ import AddEditVendorForm from "./components/AddEditVendorForm.js";
 import AddEditReviewStatsForm from "./components/AddEditReviewStatsForm.js";
 import AddEditShipOverrideForm from "./components/AddEditShipOverrideForm.js";
 import AddEditReviewsForm from "./components/AddEditReviewsForm.js";
+import AddEditBlogCategoryForm from "./components/AddEditBlogCategoryForm.js";
+import AddEditBlogPostForm from "./components/AddEditBlogPostForm.js";
+import AddEditNewsCategoryForm from "./components/AddEditNewsCategoryForm.js";
+import AddEditNewsPostForm from "./components/AddEditNewsPostForm.js";
 import "./App.css";
 import companyLogo from "./images/alphabet-signs-logo-450.png";
 
@@ -127,6 +131,17 @@ function App() {
     }
   }
 
+  async function handleSetReviewDocument(folder, setid, newDocument) {
+    try {
+      await FirestoreDBService.updateReviewDocument(folder, setid, newDocument);
+
+      handleFetchData(folder, orderByDirection);
+    } catch (error) {
+      console.error(error.message);
+      throw error;
+    }
+  }
+
   async function handleDeleteDocument(folder, deleteid) {
     try {
       await FirestoreDBService.deleteDocument(folder, deleteid);
@@ -160,6 +175,10 @@ function App() {
               <option value="reviewstats">Review Stats</option>
               <option value="shipoverride">Ship Override</option>
               <option value="reviews">Reviews</option>
+              <option value="blogcategories">Blog Categories</option>
+              <option value="blogposts">Blog Posts</option>
+              <option value="newscategories">News Categories</option>
+              <option value="newsposts">News Posts</option>
             </select>
           </label>
           {list && folder === "reviews" ? (
@@ -195,6 +214,54 @@ function App() {
               >
                 <option value="asc">Product Code (A - Z)</option>
                 <option value="desc">Product Code (Z -A)</option>
+              </select>
+            </label>
+          ) : null}
+          {list && folder === "blogcategories" ? (
+            <label className="input-label">
+              <select
+                value={orderByDirection}
+                onChange={(e) => setOrderByDirection(e.target.value)}
+                className="select"
+              >
+                <option value="asc">Category (A - Z)</option>
+                <option value="desc">Category (Z -A)</option>
+              </select>
+            </label>
+          ) : null}
+          {list && folder === "blogposts" ? (
+            <label className="input-label">
+              <select
+                value={orderByDirection}
+                onChange={(e) => setOrderByDirection(e.target.value)}
+                className="select"
+              >
+                <option value="asc">Date (oldest - newest)</option>
+                <option value="desc">Date (newest - oldest)</option>
+              </select>
+            </label>
+          ) : null}
+          {list && folder === "newscategories" ? (
+            <label className="input-label">
+              <select
+                value={orderByDirection}
+                onChange={(e) => setOrderByDirection(e.target.value)}
+                className="select"
+              >
+                <option value="asc">Category (A - Z)</option>
+                <option value="desc">Category (Z -A)</option>
+              </select>
+            </label>
+          ) : null}
+          {list && folder === "newsposts" ? (
+            <label className="input-label">
+              <select
+                value={orderByDirection}
+                onChange={(e) => setOrderByDirection(e.target.value)}
+                className="select"
+              >
+                <option value="asc">Date (oldest - newest)</option>
+                <option value="desc">Date (newest - oldest)</option>
               </select>
             </label>
           ) : null}
@@ -359,6 +426,150 @@ function App() {
                 })}
               </div>
             ) : null}
+            {list && folder === "blogcategories" && list.length > 0 ? (
+              <div className="recipe-list">
+                {list.map((item) => {
+                  return (
+                    <div className="recipe-card" key={item.key}>
+                      <div className="recipe-name">{item.blogcategoryname}</div>
+                      <div className="recipe-field">
+                        <span>Blog_uri: </span>
+                        {item.bloguri}
+                      </div>
+                      <div className="recipe-field">
+                        <span>BlogCategoryID: </span>
+                        {item.blogcategoryid}
+                      </div>
+                      <div className="recipe-field">
+                        <span>blogMetaDescription: </span>
+                        {item.blogmetadescription}
+                      </div>
+                      <div className="recipe-field">
+                        <span>active: </span>
+                        {item.blogactive}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : null}
+            {list && folder === "blogposts" && list.length > 0 ? (
+              <div className="recipe-list">
+                {list.map((item) => {
+                  return (
+                    <div className="recipe-card" key={item.key}>
+                      <div className="recipe-name">{item.postid}</div>
+                      <div className="recipe-field">
+                        <span>Post Title: </span>
+                        {item.posttitle}
+                      </div>
+                      <div className="recipe-field">
+                        <span>Post Uri: </span>
+                        {item.posturi}
+                      </div>
+                      <div className="recipe-field">
+                        <span>Post Content: </span>
+                        {item.postcontent}
+                      </div>
+                      <div className="recipe-field">
+                        <span>Post Summary: </span>
+                        {item.postsummary}
+                      </div>
+                      <div className="recipe-field">
+                        <span>Post Thumbnail: </span>
+                        {item.postthumbnail}
+                      </div>
+                      <div className="recipe-field">
+                        <span>Post Product Code: </span>
+                        {item.postproductcode}
+                      </div>
+                      <div className="recipe-field">
+                        <span>Post Category Code: </span>
+                        {item.postcategorycode}
+                      </div>
+                      <div className="recipe-field">
+                        <span>Post Date: </span>
+                        {item.postdate}
+                      </div>
+                      <div className="recipe-field">
+                        <span>Post ISO 8601: </span>
+                        {item.postiso8601}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : null}
+            {list && folder === "newscategories" && list.length > 0 ? (
+              <div className="recipe-list">
+                {list.map((item) => {
+                  return (
+                    <div className="recipe-card" key={item.key}>
+                      <div className="recipe-name">{item.newscategoryname}</div>
+                      <div className="recipe-field">
+                        <span>News_uri: </span>
+                        {item.newsuri}
+                      </div>
+                      <div className="recipe-field">
+                        <span>NewsCategoryID: </span>
+                        {item.newscategoryid}
+                      </div>
+                      <div className="recipe-field">
+                        <span>newsMetaDescription: </span>
+                        {item.newsmetadescription}
+                      </div>
+                      <div className="recipe-field">
+                        <span>active: </span>
+                        {item.newsactive}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : null}
+            {list && folder === "newsposts" && list.length > 0 ? (
+              <div className="recipe-list">
+                {list.map((item) => {
+                  return (
+                    <div className="recipe-card" key={item.key}>
+                      <div className="recipe-name">{item.newsid}</div>
+                      <div className="recipe-field">
+                        <span>News Index: </span>
+                        {item.newsindex}
+                      </div>
+                      <div className="recipe-field">
+                        <span>News Category Id: </span>
+                        {item.newscategoryid}
+                      </div>
+                      <div className="recipe-field">
+                        <span>News Content: </span>
+                        {item.newscontent}
+                      </div>
+                      <div className="recipe-field">
+                        <span>News Heading: </span>
+                        {item.newsheading}
+                      </div>
+                      <div className="recipe-field">
+                        <span>News Summary: </span>
+                        {item.newssummary}
+                      </div>
+                      <div className="recipe-field">
+                        <span>News Date: </span>
+                        {item.newsdate}
+                      </div>
+                      <div className="recipe-field">
+                        <span>News setNewsPhotoUrl: </span>
+                        {item.newsphotourl}
+                      </div>
+                      <div className="recipe-field">
+                        <span>News Photo Thumb: </span>
+                        {item.newsphotothumb}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : null}
           </div>
         </div>
         <div>
@@ -422,8 +633,41 @@ function App() {
           <AddEditReviewsForm
             handleAddDocument={handleAddDocument}
             handleSetDocument={handleSetDocument}
+            handleSetReviewDocument={handleSetReviewDocument}
             handleDeleteDocument={handleDeleteDocument}
           ></AddEditReviewsForm>
+        ) : null}
+        {user && folder === "blogcategories" ? (
+          <AddEditBlogCategoryForm
+            handleAddDocument={handleAddDocument}
+            handleSetDocument={handleSetDocument}
+            handleSetReviewDocument={handleSetReviewDocument}
+            handleDeleteDocument={handleDeleteDocument}
+          ></AddEditBlogCategoryForm>
+        ) : null}
+        {user && folder === "blogposts" ? (
+          <AddEditBlogPostForm
+            handleAddDocument={handleAddDocument}
+            handleSetDocument={handleSetDocument}
+            handleSetReviewDocument={handleSetReviewDocument}
+            handleDeleteDocument={handleDeleteDocument}
+          ></AddEditBlogPostForm>
+        ) : null}
+        {user && folder === "newscategories" ? (
+          <AddEditNewsCategoryForm
+            handleAddDocument={handleAddDocument}
+            handleSetDocument={handleSetDocument}
+            handleSetReviewDocument={handleSetReviewDocument}
+            handleDeleteDocument={handleDeleteDocument}
+          ></AddEditNewsCategoryForm>
+        ) : null}
+        {user && folder === "newsposts" ? (
+          <AddEditNewsPostForm
+            handleAddDocument={handleAddDocument}
+            handleSetDocument={handleSetDocument}
+            handleSetReviewDocument={handleSetReviewDocument}
+            handleDeleteDocument={handleDeleteDocument}
+          ></AddEditNewsPostForm>
         ) : null}
       </div>
     </div>

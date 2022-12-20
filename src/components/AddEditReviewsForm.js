@@ -4,9 +4,11 @@ import FirestoreDBService from "../FirestoreDBService.js";
 function AddEditReviewsForm({
   handleAddDocument,
   handleSetDocument,
+  handleSetReviewDocument,
   handleDeleteDocument,
 }) {
   const [reviewid, setReviewId] = useState("");
+  const [reviewindex, setReviewIndex] = useState("");
   const [reviewpageid, setReviewPageId] = useState("");
   const [reviewmerchantreviewid, setReviewMerchantReviewId] = useState("");
   const [reviewstatus, setReviewStatus] = useState("");
@@ -30,6 +32,7 @@ function AddEditReviewsForm({
   const [reviewresponse, setReviewResponse] = useState("");
   const [reviewkey, setReviewKey] = useState("");
   const [currentreviewid, setCurrentReviewId] = useState("");
+  const [currentreviewindex, setCurrentReviewIndex] = useState("");
   const [currentreviewpageid, setCurrentReviewPageId] = useState("");
   const [currentreviewmerchantreviewid, setCurrentReviewMerchantReviewId] =
     useState("");
@@ -67,6 +70,7 @@ function AddEditReviewsForm({
 
     const newDocument = {
       reviewid,
+      reviewindex,
       reviewpageid,
       reviewmerchantreviewid,
       reviewstatus,
@@ -113,6 +117,7 @@ function AddEditReviewsForm({
     querySnapshot.forEach((doc) => {
       setCurrentReviewKey(doc.get("key"));
       setCurrentReviewId(doc.get("reviewid"));
+      setCurrentReviewIndex(doc.get("reviewindex"));
       setCurrentReviewPageId(doc.get("reviewpageid"));
       setCurrentReviewMerchantReviewId(doc.get("reviewmerchantreviewid"));
       setCurrentReviewStatus(doc.get("reviewstatus"));
@@ -126,7 +131,7 @@ function AddEditReviewsForm({
       setCurrentReviewLocation(doc.get("reviewlocation"));
       setCurrentReviewServiceComments(doc.get("reviewservicecomments"));
       setCurrentReviewCustomerImage(doc.get("reviewcustomerimage"));
-      setCurrentReviewCaption(doc.get("creviewaption"));
+      setCurrentReviewCaption(doc.get("reviewcaption"));
       setCurrentReviewFullImageLocation(doc.get("reviewfullimagelocation"));
       setCurrentReviewThumbnailLocation(doc.get("reviewthumbnaillocation"));
       setCurrentReviewPictag(doc.get("reviewpictag"));
@@ -142,9 +147,13 @@ function AddEditReviewsForm({
     const folder = "reviews";
     const setid = document.getElementById("currentreviewidinput").value;
     const formname = "updatereview";
+    if (typeof currentreviewresponse === "undefined") {
+      setCurrentReviewResponse(" ");
+    }
 
     const newDocument = {
       reviewid: currentreviewid,
+      reviewindex: Number(currentreviewindex),
       reviewpageid: currentreviewpageid,
       reveiwmerchantreviewid: currentreviewmerchantreviewid,
       reviewstatus: currentreviewstatus,
@@ -168,7 +177,14 @@ function AddEditReviewsForm({
       reviewresponse: currentreviewresponse,
     };
 
-    handleSetDocument(folder, setid, newDocument);
+    console.log(
+      "[handleUpdateReviewFormSubmit]:reviewresponse",
+      newDocument,
+      " setId: ",
+      setid
+    );
+
+    handleSetReviewDocument(folder, setid, newDocument);
 
     resetForm(formname);
   }
@@ -201,6 +217,7 @@ function AddEditReviewsForm({
     if (formname === "addreview") {
       setReviewKey("");
       setReviewId("");
+      setReviewIndex("");
       setReviewPageId("");
       setReviewMerchantReviewId("");
       setReviewStatus("");
@@ -225,6 +242,7 @@ function AddEditReviewsForm({
     } else {
       setCurrentReviewKey("");
       setCurrentReviewId("");
+      setCurrentReviewIndex("");
       setCurrentReviewPageId("");
       setCurrentReviewMerchantReviewId("");
       setCurrentReviewStatus("");
@@ -269,6 +287,16 @@ function AddEditReviewsForm({
                         required
                         value={reviewid}
                         onChange={(e) => setReviewId(e.target.value)}
+                        className="input-text"
+                      />
+                    </label>
+                    <label className="recipe-label input-label">
+                      Index:
+                      <input
+                        type="text"
+                        required
+                        value={reviewindex}
+                        onChange={(e) => setReviewIndex(e.target.value)}
                         className="input-text"
                       />
                     </label>
@@ -542,10 +570,21 @@ function AddEditReviewsForm({
                       Id:
                       <input
                         type="text"
+                        id="currentreviewidinput"
                         required
                         readOnly
                         value={currentreviewid}
                         onChange={(e) => setCurrentReviewId(e.target.value)}
+                        className="input-text"
+                      />
+                    </label>
+                    <label className="recipe-label input-label">
+                      Index:
+                      <input
+                        type="text"
+                        required
+                        value={currentreviewindex}
+                        onChange={(e) => setCurrentReviewIndex(e.target.value)}
                         className="input-text"
                       />
                     </label>
@@ -633,7 +672,6 @@ function AddEditReviewsForm({
                       Bottomline:
                       <input
                         type="text"
-                        required
                         value={currentreviewbottomline}
                         onChange={(e) =>
                           setCurrentReviewBottomline(e.target.value)
@@ -643,15 +681,15 @@ function AddEditReviewsForm({
                     </label>
                     <label className="recipe-label input-label">
                       Comments:
-                      <input
-                        type="text"
+                      <textarea
+                        rows="6"
                         required
                         value={currentreviewcomments}
                         onChange={(e) =>
                           setCurrentReviewComments(e.target.value)
                         }
                         className="input-text"
-                      />
+                      ></textarea>
                     </label>
                     <label className="recipe-label input-label">
                       Nickname:
@@ -681,7 +719,6 @@ function AddEditReviewsForm({
                       Service Comments:
                       <input
                         type="text"
-                        required
                         value={currentreviewservicecomments}
                         onChange={(e) =>
                           setCurrentReviewServiceComments(e.target.value)
@@ -693,7 +730,6 @@ function AddEditReviewsForm({
                       Customer Image:
                       <input
                         type="text"
-                        required
                         value={currentreviewcustomerimage}
                         onChange={(e) =>
                           setCurrentReviewCustomerImage(e.target.value)
@@ -705,7 +741,6 @@ function AddEditReviewsForm({
                       Caption:
                       <input
                         type="text"
-                        required
                         value={currentreviewcaption}
                         onChange={(e) =>
                           setCurrentReviewCaption(e.target.value)
@@ -717,7 +752,6 @@ function AddEditReviewsForm({
                       Full Image Location:
                       <input
                         type="text"
-                        required
                         value={currentreviewfullimagelocation}
                         onChange={(e) =>
                           setCurrentReviewFullImageLocation(e.target.value)
@@ -729,7 +763,6 @@ function AddEditReviewsForm({
                       Thumbnail Location:
                       <input
                         type="text"
-                        required
                         value={currentreviewthumbnaillocation}
                         onChange={(e) =>
                           setCurrentReviewThumbnailLocation(e.target.value)
@@ -741,7 +774,6 @@ function AddEditReviewsForm({
                       Pictag:
                       <input
                         type="text"
-                        required
                         value={currentreviewpictag}
                         onChange={(e) => setCurrentReviewPictag(e.target.value)}
                         className="input-text"
@@ -775,7 +807,6 @@ function AddEditReviewsForm({
                       Private:
                       <input
                         type="text"
-                        required
                         value={currentreviewprivate}
                         onChange={(e) =>
                           setCurrentReviewPrivate(e.target.value)
@@ -787,7 +818,6 @@ function AddEditReviewsForm({
                       Response:
                       <input
                         type="text"
-                        required
                         value={currentreviewresponse}
                         onChange={(e) =>
                           setCurrentReviewResponse(e.target.value)

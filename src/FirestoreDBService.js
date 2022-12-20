@@ -18,6 +18,7 @@ import {
 import { app } from "./FirebaseConfig.js";
 
 const db = getFirestore(app);
+console.log("[FirebaseDBService]db: ", db);
 const perPage = 8;
 
 const createNewDocument = async (folder, newDocument) => {
@@ -33,6 +34,22 @@ const createNewDocument = async (folder, newDocument) => {
 const setDocument = async (folder, setid, newDocument) => {
   try {
     await setDoc(doc(db, folder, setid), newDocument);
+    return;
+  } catch (error) {
+    console.error("[setDocument ]error: ", error.message);
+    throw error;
+  }
+};
+
+const updateReviewDocument = async (folder, setid, newDocument) => {
+  console.log("[updateReviewDocument]:BEGIN");
+  try {
+    const docRef = query(
+      collection(db, folder),
+      where("reviewid", "==", setid)
+    );
+    console.log("[updateReviewDocument]:docRef", docRef.id);
+    await setDoc(doc(db, folder, docRef.id), newDocument, { merge: true });
     return;
   } catch (error) {
     console.error("[setDocument ]error: ", error.message);
@@ -73,6 +90,7 @@ const readDocuments = async (
 
 const handleFetchData = async (folder, orderByDirection) => {
   console.log("[handleFetchData]:BEGIN");
+  console.log("[handleFetchData]:BEGIN folder: ", folder);
   console.log("[handleFetchData]:orderByDirection", orderByDirection);
   const collectionRef = collection(db, folder);
   let querySnapshot = {};
@@ -94,6 +112,18 @@ const handleFetchData = async (folder, orderByDirection) => {
         break;
       case "reviews":
         orderByField = "reviewid";
+        break;
+      case "blogcategories":
+        orderByField = "blogid";
+        break;
+      case "blogposts":
+        orderByField = "postid";
+        break;
+      case "newscategories":
+        orderByField = "newsindex";
+        break;
+      case "newsposts":
+        orderByField = "newsid";
         break;
       default:
         break;
@@ -139,6 +169,18 @@ const showPrevious = async (folder, item, orderByDirection) => {
         break;
       case "shipoverride":
         orderByField = "productcode";
+        break;
+      case "blogcategories":
+        orderByField = "blogid";
+        break;
+      case "blogposts":
+        orderByField = "postid";
+        break;
+      case "newscategories":
+        orderByField = "newsindex";
+        break;
+      case "newsposts":
+        orderByField = "newsid";
         break;
       default:
         break;
@@ -186,6 +228,18 @@ const showNext = async (folder, item, orderByDirection) => {
           break;
         case "shipoverride":
           orderByField = "productcode";
+          break;
+        case "blogcategories":
+          orderByField = "blogid";
+          break;
+        case "blogposts":
+          orderByField = "postid";
+          break;
+        case "newscategories":
+          orderByField = "newsindex";
+          break;
+        case "newsposts":
+          orderByField = "newsid";
           break;
         default:
           break;
@@ -266,6 +320,7 @@ const FirestoreDBService = {
   setDocument,
   readDocuments,
   updateDocument,
+  updateReviewDocument,
   deleteDocument,
   readCurrentItem,
   handleFetchData,
