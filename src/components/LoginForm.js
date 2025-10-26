@@ -3,7 +3,7 @@ import FirebaseAuthService from "../FirebaseAuthService.js";
 import { auth } from "../FirebaseConfig.js";
 
 function LoginForm({ existingUser }) {
-  const [email, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
   async function handleSubmit(event) {
@@ -24,6 +24,7 @@ function LoginForm({ existingUser }) {
   }
 
   async function handleSendResetPasswordEmail() {
+    console.log("Email value:", email, typeof email); // Debug the email value and its type
     if (!email) {
       alert("Missing username");
       return;
@@ -34,7 +35,7 @@ function LoginForm({ existingUser }) {
         auth,
         email
       );
-      alert("Sent the password resest email");
+      console.log("Sent the password resest email: ", email);
     } catch (error) {
       alert(error.message);
     }
@@ -64,7 +65,7 @@ function LoginForm({ existingUser }) {
               type="email"
               required
               value={email}
-              onChange={(e) => setUsername(e.target.value)}
+              onChange={(e) => setEmail(e.target.value)}
               className="input-text"
             />
           </label>

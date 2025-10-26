@@ -13,6 +13,14 @@ import AddEditNewsPostForm from "./components/AddEditNewsPostForm.js";
 import "./App.css";
 import companyLogo from "./images/alphabet-signs-logo-450.png";
 
+function ErrorBoundary({ children }) {
+  const [error, setError] = useState(null);
+  if (error) {
+    return <div>Error: {error.message}</div>;
+  }
+  return children;
+}
+
 function App() {
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -21,101 +29,99 @@ function App() {
   const [list, setList] = useState([]);
   const [page, setPage] = useState(1);
   const [startPage, setStartPage] = useState(1);
+  const [reviewStatsForm, setReviewStatsForm] = useState({
+    startDate: "",
+    endDate: "",
+  });
 
   useEffect(() => {
-    setIsLoading(true);
+    const unsubscribe = FirebaseAuthService.subscribeToAuthChanges(setUser);
+    return () => unsubscribe();
+  }, []);
 
+  useEffect(() => {
+    console.log("[useEffect]: running with folder =", folder, "user =", user);
+    setIsLoading(true);
     fetchData(folder, orderByDirection)
-      .then((list) => {
-        console.log("list ", list);
-        setList(list);
-      })
       .catch((error) => {
-        console.log(error.message);
-        throw error;
+        console.error("[useEffect]:fetchData error", error.message, error.code);
+        alert(`Failed to fetch data: ${error.message}`);
+        setList([]);
       })
       .finally(() => {
         setIsLoading(false);
       });
-  }, [user, folder, orderByDirection]);
-
-  FirebaseAuthService.subscribeToAuthChanges(setUser);
+  }, [folder, orderByDirection]);
 
   async function fetchData(folder, orderByDirection) {
-    console.log("[fetchData]:BEGIN");
-    const list = await FirestoreDBService.handleFetchData(
+    console.log(
+      "[fetchData]: folder =",
       folder,
+      "orderByDirection =",
       orderByDirection
     );
-    console.log("[fetchData]:list", list);
-    setList(list);
-    return list;
-  }
-
-  async function handleFetchData(folder, orderByDirection) {
-    console.log("[handleFetchData]BEGIN");
     try {
-      const list = await fetchData(folder, orderByDirection);
-      setList(list);
-      console.log("[handleFetchData]:list", list);
+      const list = await FirestoreDBService.handleFetchData(
+        folder,
+        folder === "reviewstats" ? null : orderByDirection
+      );
+      console.log("[fetchData]: returned list =", list);
+      setList(list || []);
+      return list;
     } catch (error) {
-      console.error(error.message);
+      console.error("[fetchData]:error", error.message, error.code);
+      setList([]);
       throw error;
     }
   }
 
   async function handleShowPrevious(folder, { item }, orderByDirection) {
-    console.log("[handleShowPrevious]:item", item);
+    console.log("[handleShowPrevious]: item =", item);
     try {
       const list = await FirestoreDBService.showPrevious(
         folder,
         item,
         orderByDirection
       );
-      console.log("[handleShowPrevious]:list", list);
+      console.log("[handleShowPrevious]: list =", list);
       setPage(page - 1);
-      setList(list);
+      setList(list || []);
       return list;
     } catch (error) {
-      console.log(error.message);
+      console.error("[handleShowPrevious]:error", error.message, error.code);
       alert(error.message);
     }
   }
 
   async function handleShowNext(folder, { item }, orderByDirection) {
-    console.log("[handleShowNext]:item", item);
+    console.log("[handleShowNext]: item =", item);
     try {
       const list = await FirestoreDBService.showNext(
         folder,
         item,
         orderByDirection
       );
-      console.log("[handleShowNext]:list", list);
+      console.log("[handleShowNext]: list =", list);
       setPage(page + 1);
-      setList(list);
+      setList(list || []);
       return list;
     } catch (error) {
-      console.log(error.message);
+      console.error("[handleShowNext]:error", error.message, error.code);
       alert(error.message);
     }
   }
 
   async function handleAddDocument(folder, newDocument) {
-    console.log("[handleAddDocument]BEGIN");
+    console.log("[handleAddDocument]:BEGIN");
     try {
       const docRef = await FirestoreDBService.createNewDocument(
         folder,
         newDocument
       );
-
-      handleFetchData(folder, orderByDirection);
-
-      console.log("[handleAddDocument]BEGIN");
-
-      alert(`succesfully created a doument with an ID = ${docRef.id}`);
-      return;
+      await fetchData(folder, orderByDirection);
+      alert(`Successfully created a document with ID = ${docRef.id}`);
     } catch (error) {
-      console.log(error.message);
+      console.error("[handleAddDocument]:error", error.message, error.code);
       alert(error.message);
     }
   }
@@ -123,169 +129,305 @@ function App() {
   async function handleSetDocument(folder, setid, newDocument) {
     try {
       await FirestoreDBService.setDocument(folder, setid, newDocument);
-
-      handleFetchData(folder, orderByDirection);
+      await fetchData(folder, orderByDirection);
     } catch (error) {
-      console.error(error.message);
-      throw error;
+      console.error("[handleSetDocument]:error", error.message, error.code);
+      alert(error.message);
     }
   }
 
   async function handleSetReviewDocument(folder, setid, newDocument) {
     try {
       await FirestoreDBService.updateReviewDocument(folder, setid, newDocument);
-
-      handleFetchData(folder, orderByDirection);
+      await fetchData(folder, orderByDirection);
     } catch (error) {
-      console.error(error.message);
-      throw error;
+      console.error(
+        "[handleSetReviewDocument]:error",
+        error.message,
+        error.code
+      );
+      alert(error.message);
     }
   }
 
   async function handleDeleteDocument(folder, deleteid) {
     try {
       await FirestoreDBService.deleteDocument(folder, deleteid);
-      handleFetchData(folder, orderByDirection);
-
-      console.log("successfully deleted a vendor with an ID");
+      await fetchData(folder, orderByDirection);
+      console.log("Successfully deleted a document");
     } catch (error) {
-      console.error(error.message);
-      throw error;
+      console.error("[handleDeleteDocument]:error", error.message, error.code);
+      alert(error.message);
+    }
+  }
+
+  async function handleFetchReviewsByDateRange(e) {
+    e.preventDefault();
+    try {
+      setIsLoading(true);
+      const apiUrl =
+        process.env.NODE_ENV === "development"
+          ? "http://localhost:5001/fir-asapi/us-central1/api/fetchReviewsByDateRange"
+          : "https://us-central1-fir-asapi.cloudfunctions.net/api/fetchReviewsByDateRange";
+      console.log("[handleFetchReviewsByDateRange]:apiUrl: ", apiUrl);
+      const response = await fetch(apiUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(reviewStatsForm),
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const data = await response.json();
+      console.log("[handleFetchReviewsByDateRange]:data", data);
+      await fetchData("reviewstats", null);
+      alert(`Successfully fetched ${data.reviewscount} reviews`);
+    } catch (error) {
+      console.error("[handleFetchReviewsByDateRange]:error", error.message);
+      alert(`Failed to fetch reviews: ${error.message}`);
+    } finally {
+      setIsLoading(false);
     }
   }
 
   return (
-    <div className="App">
-      <div className="title-row">
-        <div className="logoimg">
-          <img src={companyLogo} alt="logo" />
+    <ErrorBoundary>
+      <div className="App">
+        <div className="title-row">
+          <div className="logoimg">
+            <img src={companyLogo} alt="logo" />
+          </div>
+          <LoginForm existingUser={user}></LoginForm>
         </div>
-        <LoginForm existingUser={user}></LoginForm>
-      </div>
-      <div className="main">
-        <div className="row filters">
-          <label className="recipe-label input-label">
-            Collection:
-            <select
-              value={folder}
-              onChange={(e) => setFolder(e.target.value)}
-              className="select"
-            >
-              <option value="vendors">Vendors</option>
-              <option value="reviewstats">Review Stats</option>
-              <option value="shipoverride">Ship Override</option>
-              <option value="reviews">Reviews</option>
-              <option value="blogcategories">Blog Categories</option>
-              <option value="blogposts">Blog Posts</option>
-              <option value="newscategories">News Categories</option>
-              <option value="newsposts">News Posts</option>
-            </select>
-          </label>
-          {list && folder === "reviews" ? (
-            <label className="input-label">
+        <div className="main">
+          <button onClick={() => FirestoreDBService.testFetchReviewStats()}>
+            Test Fetch Review Stats
+          </button>
+          <div className="row filters">
+            <label className="recipe-label input-label">
+              Collection:
               <select
-                value={orderByDirection}
-                onChange={(e) => setOrderByDirection(e.target.value)}
+                value={folder}
+                onChange={(e) => {
+                  console.log("[select]: changing folder to", e.target.value);
+                  setFolder(e.target.value);
+                }}
                 className="select"
               >
-                <option value="asc">Date (oldest - newest)</option>
-                <option value="desc">Date (newest - oldest)</option>
+                <option value="vendors">Vendors</option>
+                <option value="reviewstats">Review Stats</option>
+                <option value="shipoverride">Ship Override</option>
+                <option value="reviews">Reviews</option>
+                <option value="blogcategories">Blog Categories</option>
+                <option value="blogposts">Blog Posts</option>
+                <option value="newscategories">News Categories</option>
+                <option value="newsposts">News Posts</option>
               </select>
             </label>
+            {list && folder === "reviews" ? (
+              <label className="input-label">
+                <select
+                  value={orderByDirection}
+                  onChange={(e) => setOrderByDirection(e.target.value)}
+                  className="select"
+                >
+                  <option value="asc">Date (oldest - newest)</option>
+                  <option value="desc">Date (newest - oldest)</option>
+                </select>
+              </label>
+            ) : null}
+            {list && folder === "vendors" ? (
+              <label className="input-label">
+                <select
+                  value={orderByDirection}
+                  onChange={(e) => setOrderByDirection(e.target.value)}
+                  className="select"
+                >
+                  <option value="asc">Company name (A - Z)</option>
+                  <option value="desc">Company name (Z - A)</option>
+                </select>
+              </label>
+            ) : null}
+            {list && folder === "shipoverride" ? (
+              <label className="input-label">
+                <select
+                  value={orderByDirection}
+                  onChange={(e) => setOrderByDirection(e.target.value)}
+                  className="select"
+                >
+                  <option value="asc">Product Code (A - Z)</option>
+                  <option value="desc">Product Code (Z - A)</option>
+                </select>
+              </label>
+            ) : null}
+            {list && folder === "blogcategories" ? (
+              <label className="input-label">
+                <select
+                  value={orderByDirection}
+                  onChange={(e) => setOrderByDirection(e.target.value)}
+                  className="select"
+                >
+                  <option value="asc">Category (A - Z)</option>
+                  <option value="desc">Category (Z - A)</option>
+                </select>
+              </label>
+            ) : null}
+            {list && folder === "blogposts" ? (
+              <label className="input-label">
+                <select
+                  value={orderByDirection}
+                  onChange={(e) => setOrderByDirection(e.target.value)}
+                  className="select"
+                >
+                  <option value="asc">Date (oldest - newest)</option>
+                  <option value="desc">Date (newest - oldest)</option>
+                </select>
+              </label>
+            ) : null}
+            {list && folder === "newscategories" ? (
+              <label className="input-label">
+                <select
+                  value={orderByDirection}
+                  onChange={(e) => setOrderByDirection(e.target.value)}
+                  className="select"
+                >
+                  <option value="asc">Category (A - Z)</option>
+                  <option value="desc">Category (Z - A)</option>
+                </select>
+              </label>
+            ) : null}
+            {list && folder === "newsposts" ? (
+              <label className="input-label">
+                <select
+                  value={orderByDirection}
+                  onChange={(e) => setOrderByDirection(e.target.value)}
+                  className="select"
+                >
+                  <option value="asc">Date (oldest - newest)</option>
+                  <option value="desc">Date (newest - oldest)</option>
+                </select>
+              </label>
+            ) : null}
+          </div>
+          {user && folder === "reviewstats" ? (
+            <div className="fetch-reviews-form">
+              <h3>Fetch Reviews by Date Range</h3>
+              <form onSubmit={handleFetchReviewsByDateRange}>
+                <label>
+                  Start Date (YYYY-MM-DD):
+                  <input
+                    type="text"
+                    value={reviewStatsForm.startDate}
+                    onChange={(e) =>
+                      setReviewStatsForm({
+                        ...reviewStatsForm,
+                        startDate: e.target.value,
+                      })
+                    }
+                    placeholder="e.g., 2025-01-01"
+                    required
+                  />
+                </label>
+                <label>
+                  End Date (YYYY-MM-DD):
+                  <input
+                    type="text"
+                    value={reviewStatsForm.endDate}
+                    onChange={(e) =>
+                      setReviewStatsForm({
+                        ...reviewStatsForm,
+                        endDate: e.target.value,
+                      })
+                    }
+                    placeholder="e.g., 2025-12-31"
+                    required
+                  />
+                </label>
+                <button type="submit" disabled={isLoading}>
+                  Fetch Reviews
+                </button>
+              </form>
+            </div>
           ) : null}
-          {list && folder === "vendors" ? (
-            <label className="input-label">
-              <select
-                value={orderByDirection}
-                onChange={(e) => setOrderByDirection(e.target.value)}
-                className="select"
-              >
-                <option value="asc">Company name (A - Z)</option>
-                <option value="desc">Company name (Z -A)</option>
-              </select>
-            </label>
+          {user && folder === "vendors" ? (
+            <AddEditVendorForm
+              handleAddDocument={handleAddDocument}
+              handleSetDocument={handleSetDocument}
+              handleDeleteDocument={handleDeleteDocument}
+            ></AddEditVendorForm>
           ) : null}
-          {list && folder === "shipoverride" ? (
-            <label className="input-label">
-              <select
-                value={orderByDirection}
-                onChange={(e) => setOrderByDirection(e.target.value)}
-                className="select"
-              >
-                <option value="asc">Product Code (A - Z)</option>
-                <option value="desc">Product Code (Z -A)</option>
-              </select>
-            </label>
+          {user && folder === "reviewstats" ? (
+            <AddEditReviewStatsForm
+              handleAddDocument={handleAddDocument}
+              handleSetDocument={handleSetDocument}
+            ></AddEditReviewStatsForm>
           ) : null}
-          {list && folder === "blogcategories" ? (
-            <label className="input-label">
-              <select
-                value={orderByDirection}
-                onChange={(e) => setOrderByDirection(e.target.value)}
-                className="select"
-              >
-                <option value="asc">Category (A - Z)</option>
-                <option value="desc">Category (Z -A)</option>
-              </select>
-            </label>
+          {user && folder === "shipoverride" ? (
+            <AddEditShipOverrideForm
+              handleAddDocument={handleAddDocument}
+              handleSetDocument={handleSetDocument}
+              handleDeleteDocument={handleDeleteDocument}
+            ></AddEditShipOverrideForm>
           ) : null}
-          {list && folder === "blogposts" ? (
-            <label className="input-label">
-              <select
-                value={orderByDirection}
-                onChange={(e) => setOrderByDirection(e.target.value)}
-                className="select"
-              >
-                <option value="asc">Date (oldest - newest)</option>
-                <option value="desc">Date (newest - oldest)</option>
-              </select>
-            </label>
+          {user && folder === "reviews" ? (
+            <AddEditReviewsForm
+              handleAddDocument={handleAddDocument}
+              handleSetDocument={handleSetDocument}
+              handleSetReviewDocument={handleSetReviewDocument}
+              handleDeleteDocument={handleDeleteDocument}
+            ></AddEditReviewsForm>
           ) : null}
-          {list && folder === "newscategories" ? (
-            <label className="input-label">
-              <select
-                value={orderByDirection}
-                onChange={(e) => setOrderByDirection(e.target.value)}
-                className="select"
-              >
-                <option value="asc">Category (A - Z)</option>
-                <option value="desc">Category (Z -A)</option>
-              </select>
-            </label>
+          {user && folder === "blogcategories" ? (
+            <AddEditBlogCategoryForm
+              handleAddDocument={handleAddDocument}
+              handleSetDocument={handleSetDocument}
+              handleSetReviewDocument={handleSetReviewDocument}
+              handleDeleteDocument={handleDeleteDocument}
+            ></AddEditBlogCategoryForm>
           ) : null}
-          {list && folder === "newsposts" ? (
-            <label className="input-label">
-              <select
-                value={orderByDirection}
-                onChange={(e) => setOrderByDirection(e.target.value)}
-                className="select"
-              >
-                <option value="asc">Date (oldest - newest)</option>
-                <option value="desc">Date (newest - oldest)</option>
-              </select>
-            </label>
+          {user && folder === "blogposts" ? (
+            <AddEditBlogPostForm
+              handleAddDocument={handleAddDocument}
+              handleSetDocument={handleSetDocument}
+              handleSetReviewDocument={handleSetReviewDocument}
+              handleDeleteDocument={handleDeleteDocument}
+            ></AddEditBlogPostForm>
           ) : null}
-        </div>
-        <div className="center">
-          <div className="recipe-list-box">
-            {isLoading ? (
-              <div className="fire">
-                <div className="flames">
-                  <div className="flame"></div>
-                  <div className="flame"></div>
-                  <div className="flame"></div>
-                  <div className="flame"></div>
+          {user && folder === "newscategories" ? (
+            <AddEditNewsCategoryForm
+              handleAddDocument={handleAddDocument}
+              handleSetDocument={handleSetDocument}
+              handleSetReviewDocument={handleSetReviewDocument}
+              handleDeleteDocument={handleDeleteDocument}
+            ></AddEditNewsCategoryForm>
+          ) : null}
+          {user && folder === "newsposts" ? (
+            <AddEditNewsPostForm
+              handleAddDocument={handleAddDocument}
+              handleSetDocument={handleSetDocument}
+              handleSetReviewDocument={handleSetReviewDocument}
+              handleDeleteDocument={handleDeleteDocument}
+            ></AddEditNewsPostForm>
+          ) : null}
+          <div className="center">
+            <div className="recipe-list-box">
+              {isLoading ? (
+                <div className="fire">
+                  <div className="flames">
+                    <div className="flame"></div>
+                    <div className="flame"></div>
+                    <div className="flame"></div>
+                    <div className="flame"></div>
+                  </div>
+                  <div className="logs"></div>
                 </div>
-                <div className="logs"></div>
-              </div>
-            ) : null}
-            {!isLoading && list && list.length === 0 ? (
-              <h5 className="no-recipes">No List Found</h5>
-            ) : null}
-            {list && folder === "reviews" && list.length > 0 ? (
-              <div className="recipe-list">
-                {list.map((item) => {
-                  return (
+              ) : null}
+              {!isLoading && list && list.length === 0 ? (
+                <h5 className="no-recipes">No List Found</h5>
+              ) : null}
+              {list && folder === "reviews" && list.length > 0 ? (
+                <div className="recipe-list">
+                  {list.map((item) => (
                     <div className="recipe-card" key={item.key}>
                       <div className="recipe-name">{item.reviewheadline}</div>
                       <div className="recipe-field">
@@ -307,14 +449,12 @@ function App() {
                       <div className="recipe-field">{item.reviewnickname}</div>
                       <div className="recipe-field">{item.reviewlocation}</div>
                     </div>
-                  );
-                })}
-              </div>
-            ) : null}
-            {list && folder === "vendors" && list.length > 0 ? (
-              <div className="recipe-list">
-                {list.map((item) => {
-                  return (
+                  ))}
+                </div>
+              ) : null}
+              {list && folder === "vendors" && list.length > 0 ? (
+                <div className="recipe-list">
+                  {list.map((item) => (
                     <div className="recipe-card" key={item.key}>
                       <div className="recipe-name">{item.vendorname}</div>
                       <div className="recipe-field">{item.vendorcode}</div>
@@ -325,65 +465,78 @@ function App() {
                       </div>
                       <div className="recipe-field">{item.vendorphone}</div>
                     </div>
-                  );
-                })}
-              </div>
-            ) : null}
-            {list && folder === "reviewstats" && list.length > 0 ? (
-              <div className="recipe-list">
-                {list.map((item) => {
-                  return (
-                    <div className="recipe-card" key={item.key}>
+                  ))}
+                </div>
+              ) : null}
+              {list && folder === "reviewstats" && list.length > 0 ? (
+                <div className="recipe-list">
+                  {list.map((item) => (
+                    <div
+                      className="recipe-card"
+                      key={item.key || item.id || Math.random()}
+                    >
                       <div className="recipe-name">Review Stats</div>
                       <div className="recipe-field">
                         <span>Total: </span>
-                        {item.total_reviews}
+                        {item.total_reviews
+                          ? Number(item.total_reviews).toLocaleString()
+                          : "N/A"}
                       </div>
                       <div className="recipe-field">
-                        <span>Formatted: </span>
-                        {item.total_reviews_formatted}
+                        <span>Total Formatted: </span>
+                        {item.total_reviews_formatted || "N/A"}
+                      </div>
+                      <div className="recipe-field">
+                        <span>Reviews Count: </span>
+                        {item.reviewscount ? Number(item.reviewscount) : "N/A"}
+                      </div>
+                      <div className="recipe-field">
+                        <span>Last Updated: </span>
+                        {item.lastupdated ? item.lastupdated : "N/A"}
                       </div>
                       <div className="recipe-field">
                         <span>Google Eligible: </span>
-                        {item.total_google_eligible}
+                        {item.total_google_eligible
+                          ? Number(item.total_google_eligible)
+                          : "N/A"}
                       </div>
                       <div className="recipe-field">
                         <span>Average Rating: </span>
-                        {item.average_rating}
+                        {item.average_rating || "N/A"}
                       </div>
                       <div className="recipe-field">
                         <span>5 Stars: </span>
-                        {item.fivestar}
+                        {item.fivestar || "N/A"}
                       </div>
                       <div className="recipe-field">
                         <span>4 Stars: </span>
-                        {item.fourstar}
+                        {item.fourstar || "N/A"}
                       </div>
                       <div className="recipe-field">
                         <span>3 Stars: </span>
-                        {item.threestar}
+                        {item.threestar ? Number(item.threestar) : "N/A"}
                       </div>
                       <div className="recipe-field">
                         <span>2 Stars: </span>
-                        {item.twostar}
+                        {item.twostar || "N/A"}
                       </div>
                       <div className="recipe-field">
-                        <span>1 Stars: </span>
-                        {item.onestar}
+                        <span>1 Star: </span>
+                        {item.onestar || "N/A"}
                       </div>
                       <div className="recipe-field">
                         <span>Key: </span>
-                        {item.key}
+                        {item.key || item.id || "N/A"}
                       </div>
                     </div>
-                  );
-                })}
-              </div>
-            ) : null}
-            {list && folder === "shipoverride" && list.length > 0 ? (
-              <div className="recipe-list">
-                {list.map((item) => {
-                  return (
+                  ))}
+                </div>
+              ) : !isLoading && folder === "reviewstats" ? (
+                <h5 className="no-recipes">No Review Stats Found</h5>
+              ) : null}
+              {list && folder === "shipoverride" && list.length > 0 ? (
+                <div className="recipe-list">
+                  {list.map((item) => (
                     <div className="recipe-card" key={item.key}>
                       <div className="recipe-name">
                         <span>Code: </span>
@@ -422,14 +575,12 @@ function App() {
                         {item.shipzone7}
                       </div>
                     </div>
-                  );
-                })}
-              </div>
-            ) : null}
-            {list && folder === "blogcategories" && list.length > 0 ? (
-              <div className="recipe-list">
-                {list.map((item) => {
-                  return (
+                  ))}
+                </div>
+              ) : null}
+              {list && folder === "blogcategories" && list.length > 0 ? (
+                <div className="recipe-list">
+                  {list.map((item) => (
                     <div className="recipe-card" key={item.key}>
                       <div className="recipe-name">{item.blogcategoryname}</div>
                       <div className="recipe-field">
@@ -449,14 +600,12 @@ function App() {
                         {item.blogactive}
                       </div>
                     </div>
-                  );
-                })}
-              </div>
-            ) : null}
-            {list && folder === "blogposts" && list.length > 0 ? (
-              <div className="recipe-list">
-                {list.map((item) => {
-                  return (
+                  ))}
+                </div>
+              ) : null}
+              {list && folder === "blogposts" && list.length > 0 ? (
+                <div className="recipe-list">
+                  {list.map((item) => (
                     <div className="recipe-card" key={item.key}>
                       <div className="recipe-name">{item.postid}</div>
                       <div className="recipe-field">
@@ -496,14 +645,12 @@ function App() {
                         {item.postiso8601}
                       </div>
                     </div>
-                  );
-                })}
-              </div>
-            ) : null}
-            {list && folder === "newscategories" && list.length > 0 ? (
-              <div className="recipe-list">
-                {list.map((item) => {
-                  return (
+                  ))}
+                </div>
+              ) : null}
+              {list && folder === "newscategories" && list.length > 0 ? (
+                <div className="recipe-list">
+                  {list.map((item) => (
                     <div className="recipe-card" key={item.key}>
                       <div className="recipe-name">{item.newscategoryname}</div>
                       <div className="recipe-field">
@@ -523,14 +670,12 @@ function App() {
                         {item.newsactive}
                       </div>
                     </div>
-                  );
-                })}
-              </div>
-            ) : null}
-            {list && folder === "newsposts" && list.length > 0 ? (
-              <div className="recipe-list">
-                {list.map((item) => {
-                  return (
+                  ))}
+                </div>
+              ) : null}
+              {list && folder === "newsposts" && list.length > 0 ? (
+                <div className="recipe-list">
+                  {list.map((item) => (
                     <div className="recipe-card" key={item.key}>
                       <div className="recipe-name">{item.newsid}</div>
                       <div className="recipe-field">
@@ -566,111 +711,52 @@ function App() {
                         {item.newsphotothumb}
                       </div>
                     </div>
-                  );
-                })}
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          </div>
+          <div>
+            <>
+              <div className="action-buttons">
+                {page === 1 ? (
+                  ""
+                ) : (
+                  <button
+                    className="primary-button action-button"
+                    onClick={() =>
+                      handleShowPrevious(
+                        folder,
+                        { item: list[0] },
+                        orderByDirection
+                      )
+                    }
+                  >
+                    Previous
+                  </button>
+                )}
+                {list.length < 8 ? (
+                  ""
+                ) : (
+                  <button
+                    className="primary-button action-button"
+                    onClick={() =>
+                      handleShowNext(
+                        folder,
+                        { item: list[list.length - 1] },
+                        orderByDirection
+                      )
+                    }
+                  >
+                    Next
+                  </button>
+                )}
               </div>
-            ) : null}
+            </>
           </div>
         </div>
-        <div>
-          <>
-            <div className="action-buttons">
-              {page === 1 ? (
-                ""
-              ) : (
-                <button
-                  className="primary-button action-button"
-                  onClick={() =>
-                    handleShowPrevious(
-                      folder,
-                      { item: list[0] },
-                      orderByDirection
-                    )
-                  }
-                >
-                  Previous
-                </button>
-              )}
-              {list.length < 8 ? (
-                ""
-              ) : (
-                <button
-                  className="primary-button action-button"
-                  onClick={() =>
-                    handleShowNext(
-                      folder,
-                      { item: list[list.length - 1] },
-                      orderByDirection
-                    )
-                  }
-                >
-                  Next
-                </button>
-              )}
-            </div>
-          </>
-        </div>
-        {user && folder === "vendors" ? (
-          <AddEditVendorForm
-            handleAddDocument={handleAddDocument}
-            handleSetDocument={handleSetDocument}
-            handleDeleteDocument={handleDeleteDocument}
-          ></AddEditVendorForm>
-        ) : null}
-        {user && folder === "reviewstats" ? (
-          <AddEditReviewStatsForm
-            handleSetDocument={handleSetDocument}
-          ></AddEditReviewStatsForm>
-        ) : null}
-        {user && folder === "shipoverride" ? (
-          <AddEditShipOverrideForm
-            handleAddDocument={handleAddDocument}
-            handleSetDocument={handleSetDocument}
-            handleDeleteDocument={handleDeleteDocument}
-          ></AddEditShipOverrideForm>
-        ) : null}
-        {user && folder === "reviews" ? (
-          <AddEditReviewsForm
-            handleAddDocument={handleAddDocument}
-            handleSetDocument={handleSetDocument}
-            handleSetReviewDocument={handleSetReviewDocument}
-            handleDeleteDocument={handleDeleteDocument}
-          ></AddEditReviewsForm>
-        ) : null}
-        {user && folder === "blogcategories" ? (
-          <AddEditBlogCategoryForm
-            handleAddDocument={handleAddDocument}
-            handleSetDocument={handleSetDocument}
-            handleSetReviewDocument={handleSetReviewDocument}
-            handleDeleteDocument={handleDeleteDocument}
-          ></AddEditBlogCategoryForm>
-        ) : null}
-        {user && folder === "blogposts" ? (
-          <AddEditBlogPostForm
-            handleAddDocument={handleAddDocument}
-            handleSetDocument={handleSetDocument}
-            handleSetReviewDocument={handleSetReviewDocument}
-            handleDeleteDocument={handleDeleteDocument}
-          ></AddEditBlogPostForm>
-        ) : null}
-        {user && folder === "newscategories" ? (
-          <AddEditNewsCategoryForm
-            handleAddDocument={handleAddDocument}
-            handleSetDocument={handleSetDocument}
-            handleSetReviewDocument={handleSetReviewDocument}
-            handleDeleteDocument={handleDeleteDocument}
-          ></AddEditNewsCategoryForm>
-        ) : null}
-        {user && folder === "newsposts" ? (
-          <AddEditNewsPostForm
-            handleAddDocument={handleAddDocument}
-            handleSetDocument={handleSetDocument}
-            handleSetReviewDocument={handleSetReviewDocument}
-            handleDeleteDocument={handleDeleteDocument}
-          ></AddEditNewsPostForm>
-        ) : null}
       </div>
-    </div>
+    </ErrorBoundary>
   );
 }
 

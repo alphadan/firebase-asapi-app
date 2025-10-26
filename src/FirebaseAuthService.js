@@ -1,5 +1,3 @@
-import { auth } from "./FirebaseConfig.js";
-
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
@@ -9,6 +7,7 @@ import {
   signInWithPopup,
   onAuthStateChanged,
 } from "firebase/auth";
+import { auth } from "./FirebaseConfig.js";
 
 const registerUser = async (auth, email, password) => {
   const userCredential = await createUserWithEmailAndPassword(
@@ -25,6 +24,7 @@ const loginUser = async (auth, email, password) => {
     email,
     password
   );
+  console.log("Logged in user:", userCredential.user);
   return userCredential;
 };
 
@@ -32,20 +32,22 @@ const logoutUser = (auth) => {
   signOut(auth);
 };
 
-const sendEmail = (email) => {
-  sendPasswordResetEmail(auth, email);
+const sendEmail = async (auth, email) => {
+  console.log("Send Email:", email);
+  await sendPasswordResetEmail(auth, email);
 };
 
 const loginWithGoogle = () => {
   const provider = new GoogleAuthProvider();
-
   return signInWithPopup(provider);
 };
 
 const subscribeToAuthChanges = (handleAuthChange) => {
-  onAuthStateChanged(auth, (user) => {
+  const unsubscribe = onAuthStateChanged(auth, (user) => {
+    console.log("[subscribeToAuthChanges]: user =", user);
     handleAuthChange(user);
   });
+  return unsubscribe;
 };
 
 const FirebaseAuthService = {

@@ -8,6 +8,8 @@ function AddEditReviewStatsForm({ handleSetDocument }) {
   const [totalgoogleeligible, setTotalGoogleEligible] = useState("");
   const [averagerating, setAverageRating] = useState("");
   const [reviewscount, setReviewsCount] = useState("");
+  const [lastmerchantreviewid, setLastMerchantReviewId] = useState("");
+  const [lastupdated, setLastUpdated] = useState("");
   const [fivestar, setFiveStar] = useState("");
   const [fourstar, setFourStar] = useState("");
   const [threestar, setThreeStar] = useState("");
@@ -36,9 +38,11 @@ function AddEditReviewStatsForm({ handleSetDocument }) {
       setReviewStatsId(doc.get("reviewstatsid"));
       setTotalReviews(doc.get("total_reviews"));
       setTotalReviewsFormatted(doc.get("total_reviews_formatted"));
+      setReviewsCount(doc.get("reviewscount"));
+      setLastMerchantReviewId(doc.get("lastmerchantreviewid"));
+      setLastUpdated(doc.get("lastupdated"));
       setTotalGoogleEligible(doc.get("total_google_eligible"));
       setAverageRating(doc.get("average_rating"));
-      setReviewsCount(doc.get("reviewscount"));
       setFiveStar(doc.get("fivestar"));
       setFourStar(doc.get("fourstar"));
       setThreeStar(doc.get("threestar"));
@@ -56,9 +60,11 @@ function AddEditReviewStatsForm({ handleSetDocument }) {
       reviewstatsid: reviewstatsid,
       total_reviews: totalreviews,
       total_reviews_formatted: totalreviewsformatted,
+      reviewscount: reviewscount,
+      lastmerchantreviewid: lastmerchantreviewid,
+      lastupdated: lastupdated,
       total_google_eligible: totalgoogleeligible,
       average_rating: averagerating,
-      reviewscount: reviewscount,
       fivestar: fivestar,
       fourstar: fourstar,
       threestar: threestar,
@@ -82,6 +88,8 @@ function AddEditReviewStatsForm({ handleSetDocument }) {
     setTotalGoogleEligible("");
     setAverageRating("");
     setReviewsCount("");
+    setLastMerchantReviewId("");
+    setLastUpdated("");
     setFiveStar("");
     setFourStar("");
     setThreeStar("");
@@ -107,7 +115,7 @@ function AddEditReviewStatsForm({ handleSetDocument }) {
                         required
                         className="input-text"
                         value={reviewstatsid}
-                        onChange={(e) => setReviewStatsId(e.target.value)}
+                        onChange={(e) => setReviewStatsId(1)}
                       />
                     </label>
 
@@ -160,6 +168,38 @@ function AddEditReviewStatsForm({ handleSetDocument }) {
                         onChange={(e) =>
                           setTotalReviewsFormatted(e.target.value)
                         }
+                        className="input-text"
+                      />
+                    </label>
+                    <label className="recipe-label input-label">
+                      Reviews Count:
+                      <input
+                        type="text"
+                        required
+                        value={reviewscount}
+                        onChange={(e) => setReviewsCount(e.target.value)}
+                        className="input-text"
+                      />
+                    </label>
+                    <label className="recipe-label input-label">
+                      Last Merchant ReviewId:
+                      <input
+                        type="text"
+                        required
+                        value={lastmerchantreviewid}
+                        onChange={(e) =>
+                          setLastMerchantReviewId(e.target.value)
+                        }
+                        className="input-text"
+                      />
+                    </label>
+                    <label className="recipe-label input-label">
+                      Last Updated:
+                      <input
+                        type="text"
+                        required
+                        value={lastupdated}
+                        onChange={(e) => setLastUpdated(e.target.value)}
                         className="input-text"
                       />
                     </label>

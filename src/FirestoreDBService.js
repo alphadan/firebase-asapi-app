@@ -22,90 +22,87 @@ console.log("[FirebaseDBService]db: ", db);
 const perPage = 8;
 
 const createNewDocument = async (folder, newDocument) => {
-  console.log("[createVendor]newDocument: ", newDocument);
+  console.log("[createNewDocument]:newDocument: ", newDocument);
   try {
-    const docRef = addDoc(collection(db, folder), newDocument);
+    const docRef = await addDoc(collection(db, folder), newDocument);
     return docRef;
   } catch (error) {
-    console.log("[handleAddRecipe]error: ", error.message);
+    console.error("[createNewDocument]:error: ", error.message, error.code);
+    throw error;
   }
 };
 
 const setDocument = async (folder, setid, newDocument) => {
   try {
     await setDoc(doc(db, folder, setid), newDocument);
-    return;
   } catch (error) {
-    console.error("[setDocument ]error: ", error.message);
+    console.error("[setDocument]:error: ", error.message, error.code);
     throw error;
   }
 };
 
 const updateReviewDocument = async (folder, setid, newDocument) => {
-  console.log("[updateReviewDocument]:BEGIN");
+  console.log("[updateReviewDocument]:BEGIN folder =", folder, "setid =", setid);
   try {
-    const docRef = query(
-      collection(db, folder),
-      where("reviewid", "==", setid)
-    );
-    console.log("[updateReviewDocument]:docRef", docRef.id);
-    await setDoc(doc(db, folder, docRef.id), newDocument, { merge: true });
-    return;
+    if (folder === "reviews") {
+      const q = query(collection(db, folder), where("reviewid", "==", setid));
+      const querySnapshot = await getDocs(q);
+      if (!querySnapshot.empty) {
+        const docRef = querySnapshot.docs[0].ref;
+        await setDoc(docRef, newDocument, { merge: true });
+        console.log("[updateReviewDocument]:success");
+      } else {
+        throw new Error(`No document found with reviewid = ${setid}`);
+      }
+    } else {
+      await setDoc(doc(db, folder, setid), newDocument, { merge: true });
+      console.log("[updateReviewDocument]:success");
+    }
   } catch (error) {
-    console.error("[setDocument ]error: ", error.message);
+    console.error("[updateReviewDocument]:error", error.message, error.code);
     throw error;
   }
 };
 
-const readDocuments = async (
-  folder,
-  queries,
-  orderByField,
-  orderByDirection
-) => {
+const readDocuments = async (folder, queries, orderByField, orderByDirection) => {
   try {
-    let querySnapshot = {};
+    let querySnapshot;
     const collectionRef = collection(db, folder);
-    let q = {};
+    let q;
 
     if (queries && queries.length > 0) {
-      for (const holder of queries) {
-        q = query(
-          collectionRef,
-          where(holder.field, holder.condition, holder.value),
-          orderBy(orderByField, orderByDirection)
-        );
-      }
+      q = query(
+        collectionRef,
+        ...queries.map((holder) => where(holder.field, holder.condition, holder.value)),
+        orderBy(orderByField, orderByDirection)
+      );
     } else {
       q = query(collectionRef, orderBy(orderByField, orderByDirection));
     }
 
     querySnapshot = await getDocs(q);
-
     return querySnapshot;
   } catch (error) {
-    console.log("[readDocuments]error: ", error.message);
+    console.error("[readDocuments]:error: ", error.message, error.code);
+    throw error;
   }
 };
 
 const handleFetchData = async (folder, orderByDirection) => {
-  console.log("[handleFetchData]:BEGIN");
   console.log("[handleFetchData]:BEGIN folder: ", folder);
   console.log("[handleFetchData]:orderByDirection", orderByDirection);
   const collectionRef = collection(db, folder);
-  let querySnapshot = {};
   console.log("[handleFetchData]:colRef", collectionRef);
   const items = [];
 
   let orderByField;
-
   if (folder) {
     switch (folder) {
       case "vendors":
         orderByField = "vendorname";
         break;
       case "reviewstats":
-        orderByField = "reviewstatsid";
+        orderByField = null;
         break;
       case "shipoverride":
         orderByField = "productcode";
@@ -126,39 +123,57 @@ const handleFetchData = async (folder, orderByDirection) => {
         orderByField = "newsid";
         break;
       default:
+        orderByField = null;
         break;
     }
   }
 
-  console.log("[handleFetchData]:orderByField", orderByField);
-  console.log("[handleFetchData]:orderByDirection", orderByDirection);
+  try {
+    let q;
+    if (orderByField && orderByDirection) {
+      q = query(collectionRef, orderBy(orderByField, orderByDirection), limit(perPage));
+    } else {
+      q = query(collectionRef);
+    }
 
-  const q = query(
-    collectionRef,
-    orderBy(orderByField, orderByDirection),
-    limit(perPage)
-  );
+    console.log("[handleFetchData]:q", q);
+    const querySnapshot = await getDocs(q);
+    console.log("[handleFetchData]:querySnapshot.size", querySnapshot.size);
+    console.log("[handleFetchData]:querySnapshot.empty", querySnapshot.empty);
 
-  console.log("[handleFetchData]:q", q);
+    querySnapshot.forEach((doc) => {
+      items.push({ key: doc.id, ...doc.data() });
+    });
 
-  querySnapshot = await getDocs(q);
+    console.log("[handleFetchData]:items", items);
+    return items;
+  } catch (error) {
+    console.error("[handleFetchData]:error", error.message, error.code);
+    throw error;
+  }
+};
 
-  querySnapshot.forEach(function (doc) {
-    items.push({ key: doc.id, ...doc.data() });
-  });
-  console.log("first item ", items[0]);
-  return items;
+const testFetchReviewStats = async () => {
+  try {
+    const docRef = doc(db, "reviewstats", "1");
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+      console.log("[testFetchReviewStats]:data", { key: docSnap.id, ...docSnap.data() });
+    } else {
+      console.log("[testFetchReviewStats]:no document found");
+    }
+  } catch (error) {
+    console.error("[testFetchReviewStats]:error", error.message, error.code);
+  }
 };
 
 const showPrevious = async (folder, item, orderByDirection) => {
   console.log("[showPrevious]:item: ", item);
   const collectionRef = collection(db, folder);
-  let querySnapshot = {};
   console.log("[showPrevious]:colRef", collectionRef);
   const items = [];
 
   let orderByField;
-
   if (folder) {
     switch (folder) {
       case "vendors":
@@ -183,69 +198,73 @@ const showPrevious = async (folder, item, orderByDirection) => {
         orderByField = "newsid";
         break;
       default:
+        orderByField = null;
         break;
     }
   }
 
-  const docRef = doc(collectionRef, item.key);
-  console.log("[showPrevious]:docRef", docRef);
-  const docSnap = await getDoc(docRef);
+  try {
+    const docRef = doc(collectionRef, item.key);
+    console.log("[showPrevious]:docRef", docRef);
+    const docSnap = await getDoc(docRef);
 
-  const q = query(
-    collectionRef,
-    orderBy(orderByField, orderByDirection),
-    endBefore(docSnap),
-    limitToLast(perPage)
-  );
+    const q = query(
+      collectionRef,
+      orderBy(orderByField, orderByDirection),
+      endBefore(docSnap),
+      limitToLast(perPage)
+    );
 
-  querySnapshot = await getDocs(q);
+    const querySnapshot = await getDocs(q);
 
-  querySnapshot.forEach(function (doc) {
-    items.push({ key: doc.id, ...doc.data() });
-  });
-  console.log("first item ", items[0]);
-  return items;
+    querySnapshot.forEach((doc) => {
+      items.push({ key: doc.id, ...doc.data() });
+    });
+    console.log("[showPrevious]:items", items);
+    return items;
+  } catch (error) {
+    console.error("[showPrevious]:error", error.message, error.code);
+    throw error;
+  }
 };
 
 const showNext = async (folder, item, orderByDirection) => {
   console.log("[showNext]:BEGIN: item", item);
-  if (1 === 0) {
-    alert("Thats all we have for now !");
-  } else {
-    const collectionRef = collection(db, folder);
-    let querySnapshot = {};
-    console.log("[showNext]:colRef", collectionRef);
-    const items = [];
-    let orderByField;
+  const collectionRef = collection(db, folder);
+  console.log("[showNext]:colRef", collectionRef);
+  const items = [];
 
-    if (folder) {
-      switch (folder) {
-        case "vendors":
-          orderByField = "vendorname";
-          break;
-        case "reviews":
-          orderByField = "reviewid";
-          break;
-        case "shipoverride":
-          orderByField = "productcode";
-          break;
-        case "blogcategories":
-          orderByField = "blogid";
-          break;
-        case "blogposts":
-          orderByField = "postid";
-          break;
-        case "newscategories":
-          orderByField = "newsindex";
-          break;
-        case "newsposts":
-          orderByField = "newsid";
-          break;
-        default:
-          break;
-      }
+  let orderByField;
+  if (folder) {
+    switch (folder) {
+      case "vendors":
+        orderByField = "vendorname";
+        break;
+      case "reviews":
+        orderByField = "reviewid";
+        break;
+      case "shipoverride":
+        orderByField = "productcode";
+        break;
+      case "blogcategories":
+        orderByField = "blogid";
+        break;
+      case "blogposts":
+        orderByField = "postid";
+        break;
+      case "newscategories":
+        orderByField = "newsindex";
+        break;
+      case "newsposts":
+        orderByField = "newsid";
+        break;
+      default:
+        orderByField = null;
+        break;
     }
+  }
 
+  try {
     const docRef = doc(collectionRef, item.key);
     console.log("[showNext]:docRef", docRef);
     const docSnap = await getDoc(docRef);
@@ -258,14 +277,16 @@ const showNext = async (folder, item, orderByDirection) => {
     );
 
     console.log("[showNext]:q", q);
+    const querySnapshot = await getDocs(q);
 
-    querySnapshot = await getDocs(q);
-
-    querySnapshot.forEach(function (doc) {
+    querySnapshot.forEach((doc) => {
       items.push({ key: doc.id, ...doc.data() });
     });
-    console.log("first item ", items[0]);
+    console.log("[showNext]:items", items);
     return items;
+  } catch (error) {
+    console.error("[showNext]:error", error.message, error.code);
+    throw error;
   }
 };
 
@@ -273,45 +294,43 @@ const readCurrentItem = async (folder, queries) => {
   console.log("[readCurrentItem]folder: ", folder);
   console.log("[readCurrentItem]queries: ", queries);
   try {
-    let querySnapshot = {};
     const collectionRef = collection(db, folder);
-    console.log("[readCurrentItem]collectionRef: ", collectionRef);
-    let q = {};
+    let q;
 
     if (queries && queries.length > 0) {
-      for (const holder of queries) {
-        q = query(
-          collectionRef,
-          where(holder.field, holder.condition, holder.value)
-        );
-      }
+      q = query(
+        collectionRef,
+        ...queries.map((holder) => where(holder.field, holder.condition, holder.value))
+      );
+    } else {
+      q = query(collectionRef);
     }
 
     console.log("[readCurrentItem]q: ", q);
-    querySnapshot = await getDocs(q);
+    const querySnapshot = await getDocs(q);
     console.log("[readCurrentItem]querySnapshot: ", querySnapshot);
     return querySnapshot;
   } catch (error) {
-    console.error(error.message);
+    console.error("[readCurrentItem]:error", error.message, error.code);
     throw error;
   }
 };
 
 const updateDocument = async (folder, id, newDocument) => {
   try {
-    const docRef = await setDoc(collection(db, folder, id), newDocument);
-    return docRef;
+    await setDoc(doc(db, folder, id), newDocument);
   } catch (error) {
-    console.log("[updateDocument]error: ", error.message);
+    console.error("[updateDocument]:error", error.message, error.code);
+    throw error;
   }
 };
 
 const deleteDocument = async (folder, deleteid) => {
   try {
     await deleteDoc(doc(db, folder, deleteid));
-    return;
   } catch (error) {
-    console.log("[updateDocument]error: ", error.message);
+    console.error("[deleteDocument]:error", error.message, error.code);
+    throw error;
   }
 };
 
@@ -326,6 +345,7 @@ const FirestoreDBService = {
   handleFetchData,
   showPrevious,
   showNext,
+  testFetchReviewStats,
 };
 
 export default FirestoreDBService;
