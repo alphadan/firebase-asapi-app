@@ -1,8 +1,11 @@
+// functions/index.js
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
-const app = require("./alphabetApi");
 
-// Initialize Firebase Admin SDK once
+// Initialize Firebase Admin SDK **ONCE**
 admin.initializeApp();
 
-exports.api = functions.https.onRequest(app);
+const api = require("./alphabetApi");
+
+// Export the Express app as a single HTTPS function
+exports.api = functions.https.onRequest(api);
