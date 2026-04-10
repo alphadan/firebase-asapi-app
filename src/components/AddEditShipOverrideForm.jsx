@@ -1,9 +1,17 @@
-import { useState } from "react";
+import React, { useState } from "react";
+import {
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  Button,
+  Grid,
+} from "@mui/material";
 
 const AddEditShipOverrideForm = ({
   handleAddDocument,
   handleSetDocument,
-  handleDeleteDocument,
   initialItem,
   onCancel,
   onSave,
@@ -21,7 +29,7 @@ const AddEditShipOverrideForm = ({
       shipzone5: "",
       shipzone6: "",
       shipzone7: "",
-    }
+    },
   );
 
   const handleChange = (e) => {
@@ -43,81 +51,57 @@ const AddEditShipOverrideForm = ({
   };
 
   return (
-    <div className="add-edit-form">
-      <h3>{isEdit ? "Edit Ship Override" : "Add Ship Override"}</h3>
-      <form onSubmit={handleSubmit}>
-        <input
-          name="productcode"
-          value={form.productcode}
-          onChange={handleChange}
-          placeholder="productcode"
-          required
-        />
-        <input
-          name="productid"
-          value={form.productid}
-          onChange={handleChange}
-          placeholder="productid"
-        />
-        <input
-          name="shipzone1"
-          value={form.shipzone1}
-          onChange={handleChange}
-          placeholder="shipzone1"
-        />
-        <input
-          name="shipzone2"
-          value={form.shipzone2}
-          onChange={handleChange}
-          placeholder="shipzone2"
-        />
-        <input
-          name="shipzone3"
-          value={form.shipzone3}
-          onChange={handleChange}
-          placeholder="shipzone3"
-        />
-        <input
-          name="shipzone4"
-          value={form.shipzone4}
-          onChange={handleChange}
-          placeholder="shipzone4"
-        />
-        <input
-          name="shipzone5"
-          value={form.shipzone5}
-          onChange={handleChange}
-          placeholder="shipzone5"
-        />
-        <input
-          name="shipzone6"
-          value={form.shipzone6}
-          onChange={handleChange}
-          placeholder="shipzone6"
-        />
-        <input
-          name="shipzone7"
-          value={form.shipzone7}
-          onChange={handleChange}
-          placeholder="shipzone7"
-        />
+    <Dialog open={true} onClose={onCancel} maxWidth="sm" fullWidth>
+      <DialogTitle fontWeight="bold">
+        {isEdit ? "Edit Ship Override" : "Add New Ship Override"}
+      </DialogTitle>
+      <DialogContent dividers>
+        <Grid container spacing={2} sx={{ mt: 1 }}>
+          <Grid item xs={6}>
+            <TextField
+              name="productcode"
+              label="Product Code"
+              value={form.productcode}
+              onChange={handleChange}
+              fullWidth
+              required
+            />
+          </Grid>
+          <Grid item xs={6}>
+            <TextField
+              name="productid"
+              label="Product ID"
+              value={form.productid}
+              onChange={handleChange}
+              fullWidth
+            />
+          </Grid>
 
-        <div className="action-buttons">
-          <button type="submit" className="primary-button">
-            {isEdit ? "Update" : "Create"}
-          </button>
-          {isEdit && (
-            <button
-              type="button"
-              onClick={onCancel}
-              className="secondary-button"
-            >
-              Cancel
-            </button>
-          )}
-        </div>
-      </form>
-    </div>
+          {/* Shipping Zones */}
+          {[1, 2, 3, 4, 5, 6, 7].map((num) => (
+            <Grid item xs={4} sm={3} key={num}>
+              <TextField
+                name={`shipzone${num}`}
+                label={`Zone ${num}`}
+                value={form[`shipzone${num}`]}
+                onChange={handleChange}
+                fullWidth
+                type="number"
+                size="small"
+              />
+            </Grid>
+          ))}
+        </Grid>
+      </DialogContent>
+      <DialogActions sx={{ p: 2 }}>
+        <Button onClick={onCancel} color="inherit">
+          Cancel
+        </Button>
+        <Button onClick={handleSubmit} variant="contained" color="primary">
+          {isEdit ? "Update Override" : "Create Override"}
+        </Button>
+      </DialogActions>
+    </Dialog>
   );
 };
 

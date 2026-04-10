@@ -1,71 +1,90 @@
-# Getting Started with Create React App
+# Alphabet Signs ASAPI Admin Console
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
-This project is the admin interface of the asapi console to manage the databases
+A modernized admin interface for the ASAPI console, built with **React 18** and **Vite**, designed to manage vendors, reviews, blog posts, and shipping overrides via Firebase Firestore.
 
-## Available Scripts
+## 🚀 Key Improvements (Migration from CRA to Vite)
 
-In the project directory, you can run:
+- **Speed**: Instant Hot Module Replacement (HMR) and significantly faster build times.
+- **Modern UI**: Fully refactored using **Material UI (MUI)** with a professional dashboard layout.
+- **Security**: Moved Firebase configurations to environment variables (`.env`).
+- **User Experience**: 
+  - **Live Search**: Global filtering across all fields in a collection.
+  - **Skeleton Loading**: Visual placeholders for a smoother perceived performance.
+  - **Snackbars**: Non-blocking notifications for CRUD actions.
+  - **Responsive Layout**: Sidebar navigation with a sticky top-bar dashboard.
 
-### `npm start`
+## 🛠️ Tech Stack
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+- **Framework**: [React 18](https://reactjs.org/) (Vite)
+- **UI Library**: [Material UI (MUI)](https://mui.com/)
+- **Backend**: [Firebase](https://firebase.google.com/) (Auth, Firestore, Cloud Functions)
+- **Icons**: [MUI Icons](https://mui.com/material-ui/material-icons/)
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+## 🏁 Getting Started
 
-### `npm test`
+### 1. Prerequisites
+Ensure you have **Node.js 18+** installed.
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+### 2. Environment Setup
+Create a `.env` file in the root directory and add your Firebase configuration:
+```env
+VITE_FIREBASE_API_KEY=your_key
+VITE_FIREBASE_AUTH_DOMAIN=your_domain
+VITE_FIREBASE_DATABASE_URL=your_url
+VITE_FIREBASE_PROJECT_ID=your_id
+VITE_FIREBASE_STORAGE_BUCKET=your_bucket
+VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+VITE_FIREBASE_APP_ID=your_app_id
+
+### 3. Install Dependencies
+
+Since the project was migrated from Create React App to Vite, a clean installation is recommended to remove legacy dependencies:
+
+**Windows (PowerShell):**
+```powershell
+# Remove old node_modules and lock files
+Remove-Item -Recurse -Force node_modules, package-lock.json, yarn.lock
+
+# Reinstall clean
+npm install
+
+## 📜 Available Scripts
+
+In the project directory, you can run the following commands:
+
+### `npm start` (or `npm run dev`)
+Starts the Vite development server.  
+Open [http://localhost:3000](http://localhost:3000) to view it in your browser.  
+The page will reload instantly (HMR) when you make changes to the source code.
 
 ### `npm run build`
+Compiles the application for production.  
+Vite will bundle the React project into the `/build` directory using Rollup. This build is minified, optimized, and ready for deployment to **Firebase Hosting**.
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+### `npm run preview`
+Locally serves the production build from the `/build` folder.  
+Use this to verify that the optimized production version of the app works correctly before deploying.
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+### `npm run lint`
+Runs ESLint to check the code for potential errors and styling issues according to the project's configuration.
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+## 📂 Project Structure
 
-### `npm run eject`
+The project has been refactored into a modular architecture for better maintainability and scalability:
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+### `/src`
+- **`components/`**: 
+    - **`layout/`**: Core UI components (`Sidebar.jsx`, `MainContent.jsx`).
+    - **`auth/`**: Security components like `AuthGuard.jsx` and `LoginForm.jsx`.
+    - **Add/Edit Forms**: Specific dialog forms for every collection (e.g., `AddEditVendorForm.jsx`).
+- **`context/`**: Global State providers (e.g., `NotificationContext.jsx` for Snackbars).
+- **`hooks/`**: Custom React hooks, including `useCollection.js` for Firestore pagination logic.
+- **`utils/`**: Shared helpers like `constants.js` and the `theme.js` configuration.
+- **`images/`**: Brand assets and logos.
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
-
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
-
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
-
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+### Root Directory
+- **`index.html`**: The entry point for the Vite application.
+- **`vite.config.js`**: Central configuration for the build tool and development server.
+- **`.env`**: (Local only) Stores sensitive Firebase API keys and environment variables.
+- **`functions/`**: Contains the Firebase Cloud Functions (Node.js) for backend API logic.
+- **`firebase.json`**: Deployment and Emulator configuration for Firebase services.

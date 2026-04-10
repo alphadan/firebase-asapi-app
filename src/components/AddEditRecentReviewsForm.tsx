@@ -10,60 +10,50 @@ import {
   MenuItem,
 } from "@mui/material";
 
-const AddEditReviewsForm = ({
+const AddEditRecentReviewsForm = ({
   handleAddDocument,
-  handleSetReviewDocument,
+  handleSetDocument,
   initialItem,
   onCancel,
   onSave,
 }) => {
   const isEdit = !!initialItem?.key;
 
-  // 1. Cleaner state initialization
   const [form, setForm] = useState({
     reviewheadline: "",
     reviewoverallrating: 5,
     reviewcomments: "",
-    reviewnickname: "Anonymous",
+    reviewnickname: "",
     reviewlocation: "",
     reviewpageid: "",
     revieworderid: "",
-    reviewstatus: "Approved",
     reviewcreatedate: new Date().toISOString().split("T")[0],
     ...initialItem,
   });
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    // 2. Ensure Rating is saved as a Number
-    const finalValue = name === "reviewoverallrating" ? Number(value) : value;
-    setForm({ ...form, [name]: finalValue });
+    setForm({ ...form, [e.target.name]: e.target.value });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
       if (isEdit) {
-        // 3. Using the specialized review update method
-        // Note: For reviews, we typically use the reviewid as the key
-        await handleSetReviewDocument(
-          "reviews",
-          initialItem.reviewid || initialItem.key,
-          form,
-        );
+        // For Recent Reviews, we use the standard setDocument
+        await handleSetDocument("recentreviews", initialItem.key, form);
       } else {
-        await handleAddDocument("reviews", form);
+        await handleAddDocument("recentreviews", form);
       }
       onSave?.();
     } catch (err) {
-      alert("Review Save Error: " + err.message);
+      alert(err.message);
     }
   };
 
   return (
     <Dialog open={true} onClose={onCancel} maxWidth="md" fullWidth>
       <DialogTitle fontWeight="bold">
-        {isEdit ? "Edit Review" : "Add New Review"}
+        {isEdit ? "Edit Recent Review" : "Add Manual Recent Review"}
       </DialogTitle>
       <DialogContent dividers>
         <Grid container spacing={2} sx={{ mt: 1 }}>
@@ -93,7 +83,7 @@ const AddEditReviewsForm = ({
               ))}
             </TextField>
           </Grid>
-          <Grid size={12}>
+          <Grid size={{ xs: 12 }}>
             <TextField
               name="reviewcomments"
               label="Comment"
@@ -126,7 +116,7 @@ const AddEditReviewsForm = ({
           <Grid size={{ xs: 12, sm: 6 }}>
             <TextField
               name="reviewpageid"
-              label="Product ID / Code"
+              label="Product ID"
               value={form.reviewpageid}
               onChange={handleChange}
               fullWidth
@@ -148,11 +138,11 @@ const AddEditReviewsForm = ({
           Cancel
         </Button>
         <Button onClick={handleSubmit} variant="contained" color="primary">
-          {isEdit ? "Update Review" : "Save Review"}
+          {isEdit ? "Update Recent Review" : "Save Recent Review"}
         </Button>
       </DialogActions>
     </Dialog>
   );
 };
 
-export default AddEditReviewsForm;
+export default AddEditRecentReviewsForm;

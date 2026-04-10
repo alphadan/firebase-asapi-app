@@ -1,9 +1,7 @@
 // src/hooks/useCollection.js
 import { useState, useEffect } from "react";
 import FirestoreDBService from "../FirestoreDBService.js";
-import { COLLECTIONS } from "../utils/constants.js";
-
-const perPage = 8;
+import { COLLECTIONS, PER_PAGE } from "../utils/constants.js";
 
 export const useCollection = (folder) => {
   const [data, setData] = useState([]);
@@ -30,7 +28,7 @@ export const useCollection = (folder) => {
       setData(result.items);
       setLastVisible(result.lastVisible);
       setFirstVisible(result.firstVisible);
-      setCanPaginate(result.items.length === perPage);
+      setCanPaginate(result.items.length === PER_PAGE);
     } catch (err) {
       setError(err);
     } finally {
@@ -59,7 +57,7 @@ export const useCollection = (folder) => {
       setData(result.items);
       setLastVisible(result.lastVisible);
       setFirstVisible(result.firstVisible);
-      setCanPaginate(result.items.length === perPage);
+      setCanPaginate(result.items.length === PER_PAGE);
     } catch (err) {
       setError(err);
     } finally {

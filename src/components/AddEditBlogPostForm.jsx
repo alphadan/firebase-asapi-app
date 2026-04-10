@@ -1,9 +1,17 @@
-import { useState } from "react";
+import React, { useState } from "react";
+import {
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  Button,
+  Grid,
+} from "@mui/material";
 
 const AddEditBlogPostForm = ({
   handleAddDocument,
   handleSetDocument,
-  handleDeleteDocument,
   initialItem,
   onCancel,
   onSave,
@@ -21,9 +29,9 @@ const AddEditBlogPostForm = ({
       postthumbnail: "",
       postproductcode: "",
       postcategorycode: "",
-      postdate: "",
-      postiso8601: "",
-    }
+      postdate: new Date().toLocaleDateString("en-US"),
+      postiso8601: new Date().toISOString(),
+    },
   );
 
   const handleChange = (e) => {
@@ -45,103 +53,127 @@ const AddEditBlogPostForm = ({
   };
 
   return (
-    <div className="add-edit-form">
-      <h3>{isEdit ? "Edit Blog Post" : "Add Bolg Post"}</h3>
-      <form onSubmit={handleSubmit}>
-        <input
-          name="postid"
-          value={form.postid}
-          onChange={handleChange}
-          placeholder="postid"
-          required
-        />
-        <input
-          name="postindex"
-          value={form.postindex}
-          onChange={handleChange}
-          placeholder="postindex"
-          required
-        />
-        <input
-          name="posturi"
-          value={form.posturi}
-          onChange={handleChange}
-          placeholder="posturi"
-          required
-        />
-        <input
-          name="posttitle"
-          value={form.posttitle}
-          onChange={handleChange}
-          placeholder="posttitle"
-          required
-        />
-        <input
-          name="postcontent"
-          value={form.postcontent}
-          onChange={handleChange}
-          placeholder="postcontent"
-          required
-        />
-        <input
-          name="postsummary"
-          value={form.postsummary}
-          onChange={handleChange}
-          placeholder="postsummary"
-          required
-        />
-        <input
-          name="postthumbnail"
-          value={form.postthumbnail}
-          onChange={handleChange}
-          placeholder="postthumbnail"
-          required
-        />
-        <input
-          name="postproductcode"
-          value={form.postproductcode}
-          onChange={handleChange}
-          placeholder="postproductcode"
-          required
-        />
-        <input
-          name="postcategorycode"
-          value={form.postcategorycode}
-          onChange={handleChange}
-          placeholder="postcategorycode"
-          required
-        />
-        <input
-          name="postdate"
-          value={form.postdate}
-          onChange={handleChange}
-          placeholder="postdate"
-          required
-        />
-        <input
-          name="postiso8601"
-          value={form.postiso8601}
-          onChange={handleChange}
-          placeholder="postiso8601"
-          required
-        />
-
-        <div className="action-buttons">
-          <button type="submit" className="primary-button">
-            {isEdit ? "Update" : "Create"}
-          </button>
-          {isEdit && (
-            <button
-              type="button"
-              onClick={onCancel}
-              className="secondary-button"
-            >
-              Cancel
-            </button>
-          )}
-        </div>
-      </form>
-    </div>
+    <Dialog open={true} onClose={onCancel} maxWidth="md" fullWidth>
+      <DialogTitle fontWeight="bold">
+        {isEdit ? "Edit Blog Post" : "Add New Blog Post"}
+      </DialogTitle>
+      <DialogContent dividers>
+        <Grid container spacing={2} sx={{ mt: 1 }}>
+          <Grid size={{ xs: 12, sm: 9 }}>
+            <TextField
+              name="posttitle"
+              label="Post Title"
+              value={form.posttitle}
+              onChange={handleChange}
+              fullWidth
+              required
+            />
+          </Grid>
+          <Grid size={{ xs: 12, sm: 3 }}>
+            <TextField
+              name="postdate"
+              label="Display Date"
+              value={form.postdate}
+              onChange={handleChange}
+              fullWidth
+              required
+            />
+          </Grid>
+          <Grid size={{ xs: 12 }}>
+            <TextField
+              name="postsummary"
+              label="Summary / Excerpt"
+              value={form.postsummary}
+              onChange={handleChange}
+              fullWidth
+              multiline
+              rows={2}
+              required
+            />
+          </Grid>
+          <Grid size={{ xs: 12 }}>
+            <TextField
+              name="postcontent"
+              label="Post Content (HTML or Text)"
+              value={form.postcontent}
+              onChange={handleChange}
+              fullWidth
+              multiline
+              rows={8}
+              required
+            />
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6 }}>
+            <TextField
+              name="posturi"
+              label="URL Slug (URI)"
+              value={form.posturi}
+              onChange={handleChange}
+              fullWidth
+              required
+              placeholder="e.g. my-new-blog-post"
+            />
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6 }}>
+            <TextField
+              name="postthumbnail"
+              label="Thumbnail Image URL"
+              value={form.postthumbnail}
+              onChange={handleChange}
+              fullWidth
+              required
+            />
+          </Grid>
+          <Grid size={{ xs: 6, sm: 3 }}>
+            <TextField
+              name="postid"
+              label="Post ID"
+              value={form.postid}
+              onChange={handleChange}
+              fullWidth
+              required
+            />
+          </Grid>
+          <Grid size={{ xs: 12, sm: 3 }}>
+            <TextField
+              name="postindex"
+              label="Index Order"
+              type="number"
+              value={form.postindex}
+              onChange={handleChange}
+              fullWidth
+              required
+            />
+          </Grid>
+          <Grid size={{ xs: 6, sm: 3 }}>
+            <TextField
+              name="postproductcode"
+              label="Product Code"
+              value={form.postproductcode}
+              onChange={handleChange}
+              fullWidth
+            />
+          </Grid>
+          <Grid size={{ xs: 6, sm: 3 }}>
+            <TextField
+              name="postcategorycode"
+              label="Category Code"
+              value={form.postcategorycode}
+              onChange={handleChange}
+              fullWidth
+            />
+          </Grid>
+        </Grid>
+      </DialogContent>
+      <DialogActions sx={{ p: 2 }}>
+        <Button onClick={onCancel} color="inherit">
+          Cancel
+        </Button>
+        <Button onClick={handleSubmit} variant="contained" color="primary">
+          {isEdit ? "Update Post" : "Save Post"}
+        </Button>
+      </DialogActions>
+    </Dialog>
   );
 };
 

@@ -17,10 +17,9 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { app } from "./FirebaseConfig.js";
-import { COLLECTIONS } from "./utils/constants.js";
+import { COLLECTIONS, PER_PAGE } from "./utils/constants.js";
 
 const db = getFirestore(app);
-const perPage = 12;
 
 // ------------------------------------------------------------------
 // CREATE / UPDATE / DELETE (unchanged)
@@ -98,10 +97,10 @@ const handleFetchData = async (folder, orderByDirection = "asc") => {
       q = query(
         collectionRef,
         orderBy(orderByField, orderByDirection),
-        limit(perPage)
+        limit(PER_PAGE)
       );
     } else {
-      q = query(collectionRef, limit(perPage));
+      q = query(collectionRef, limit(PER_PAGE));
     }
 
     const querySnapshot = await getDocs(q);
@@ -146,7 +145,7 @@ const showNext = async (folder, lastVisible, orderByDirection = "asc") => {
       collectionRef,
       orderBy(orderByField, orderByDirection),
       startAfter(lastVisible),
-      limit(perPage)
+      limit(PER_PAGE)
     );
 
     const querySnapshot = await getDocs(q);
@@ -196,7 +195,7 @@ const showPrevious = async (folder, firstVisible, orderByDirection = "asc") => {
       collectionRef,
       orderBy(orderByField, orderByDirection),
       endBefore(firstVisible),
-      limitToLast(perPage)
+      limitToLast(PER_PAGE)
     );
 
     const querySnapshot = await getDocs(q);

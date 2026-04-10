@@ -1,9 +1,18 @@
-import { useState } from "react";
+import React, { useState } from "react";
+import {
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  Button,
+  Grid,
+  MenuItem,
+} from "@mui/material";
 
 const AddEditBlogCategoryForm = ({
   handleAddDocument,
   handleSetDocument,
-  handleDeleteDocument,
   initialItem,
   onCancel,
   onSave,
@@ -12,13 +21,13 @@ const AddEditBlogCategoryForm = ({
 
   const [form, setForm] = useState(
     initialItem || {
-      blogactive: "",
+      blogactive: "Yes",
       blogcategoryid: "",
       blogcategoryname: "",
       blogid: "",
       blogmetadescription: "",
       bloguri: "",
-    }
+    },
   );
 
   const handleChange = (e) => {
@@ -40,63 +49,87 @@ const AddEditBlogCategoryForm = ({
   };
 
   return (
-    <div className="add-edit-form">
-      <h3>{isEdit ? "Edit Blog Category" : "Add Blog Category"}</h3>
-      <form onSubmit={handleSubmit}>
-        <input
-          name="blogactive"
-          value={form.blogactive}
-          onChange={handleChange}
-          placeholder="blogactive"
-          required
-        />
-        <input
-          name="blogcategoryid"
-          value={form.blogcategoryid}
-          onChange={handleChange}
-          placeholder="blogcategoryid"
-        />
-        <input
-          name="blogcategoryname"
-          value={form.blogcategoryname}
-          onChange={handleChange}
-          placeholder="blogcategoryname"
-        />
-        <input
-          name="blogid"
-          value={form.blogid}
-          onChange={handleChange}
-          placeholder="blogid"
-        />
-        <input
-          name="blogmetadescription"
-          value={form.blogmetadescription}
-          onChange={handleChange}
-          placeholder="State"
-        />
-        <input
-          name="bloguri"
-          value={form.bloguri}
-          onChange={handleChange}
-          placeholder="bloguri"
-        />
-
-        <div className="action-buttons">
-          <button type="submit" className="primary-button">
-            {isEdit ? "Update" : "Create"}
-          </button>
-          {isEdit && (
-            <button
-              type="button"
-              onClick={onCancel}
-              className="secondary-button"
+    <Dialog open={true} onClose={onCancel} maxWidth="sm" fullWidth>
+      <DialogTitle fontWeight="bold">
+        {isEdit ? "Edit Blog Category" : "Add New Blog Category"}
+      </DialogTitle>
+      <DialogContent dividers>
+        <Grid container spacing={2} sx={{ mt: 1 }}>
+          <Grid size={{ xs: 12, sm: 8 }}>
+            <TextField
+              name="blogcategoryname"
+              label="Category Name"
+              value={form.blogcategoryname}
+              onChange={handleChange}
+              fullWidth
+              required
+            />
+          </Grid>
+          <Grid size={{ xs: 12, sm: 4 }}>
+            <TextField
+              name="blogactive"
+              label="Active Status"
+              select
+              value={form.blogactive}
+              onChange={handleChange}
+              fullWidth
+              required
             >
-              Cancel
-            </button>
-          )}
-        </div>
-      </form>
-    </div>
+              <MenuItem value="Yes">Yes</MenuItem>
+              <MenuItem value="No">No</MenuItem>
+            </TextField>
+          </Grid>
+          <Grid size={{ xs: 12 }}>
+            <TextField
+              name="bloguri"
+              label="Category URI / Slug"
+              value={form.bloguri}
+              onChange={handleChange}
+              fullWidth
+              placeholder="e.g. signage-tips"
+              required
+            />
+          </Grid>
+          <Grid size={{ xs: 6 }}>
+            <TextField
+              name="blogcategoryid"
+              label="Category ID"
+              value={form.blogcategoryid}
+              onChange={handleChange}
+              fullWidth
+            />
+          </Grid>
+          <Grid size={{ xs: 6 }}>
+            <TextField
+              name="blogid"
+              label="Internal Blog ID"
+              value={form.blogid}
+              onChange={handleChange}
+              fullWidth
+            />
+          </Grid>
+          <Grid size={{ xs: 12 }}>
+            <TextField
+              name="blogmetadescription"
+              label="Meta Description (SEO)"
+              value={form.blogmetadescription}
+              onChange={handleChange}
+              fullWidth
+              multiline
+              rows={3}
+            />
+          </Grid>
+        </Grid>
+      </DialogContent>
+      <DialogActions sx={{ p: 2 }}>
+        <Button onClick={onCancel} color="inherit">
+          Cancel
+        </Button>
+        <Button onClick={handleSubmit} variant="contained" color="primary">
+          {isEdit ? "Update Category" : "Save Category"}
+        </Button>
+      </DialogActions>
+    </Dialog>
   );
 };
 

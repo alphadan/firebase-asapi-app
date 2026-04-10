@@ -1,9 +1,17 @@
-import { useState } from "react";
+import React, { useState } from "react";
+import {
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  Button,
+  Grid,
+} from "@mui/material";
 
 const AddEditNewsPostForm = ({
   handleAddDocument,
   handleSetDocument,
-  handleDeleteDocument,
   initialItem,
   onCancel,
   onSave,
@@ -17,11 +25,11 @@ const AddEditNewsPostForm = ({
       newscontent: "",
       newsheading: "",
       newssummary: "",
-      newsdate: "",
+      newsdate: new Date().toISOString().split("T")[0],
       newsphotourl: "",
       newsphotothumb: "",
       newscategoryid: "",
-    }
+    },
   );
 
   const handleChange = (e) => {
@@ -43,89 +51,115 @@ const AddEditNewsPostForm = ({
   };
 
   return (
-    <div className="add-edit-form">
-      <h3>{isEdit ? "Edit News Post" : "Add News Post"}</h3>
-      <form onSubmit={handleSubmit}>
-        <input
-          name="newsid"
-          value={form.newsid}
-          onChange={handleChange}
-          placeholder="newsid"
-          required
-        />
-        <input
-          name="newsindex"
-          value={form.newsindex}
-          onChange={handleChange}
-          placeholder="newsindex"
-          required
-        />
-        <input
-          name="newscontent"
-          value={form.newscontent}
-          onChange={handleChange}
-          placeholder="newscontent"
-          required
-        />
-        <input
-          name="newsheading"
-          value={form.newsheading}
-          onChange={handleChange}
-          placeholder="newsheading"
-          required
-        />
-        <input
-          name="newssummary"
-          value={form.newssummary}
-          onChange={handleChange}
-          placeholder="newssummary"
-          required
-        />
-        <input
-          name="newsdate"
-          value={form.newsdate}
-          onChange={handleChange}
-          placeholder="newsdate"
-          required
-        />
-        <input
-          name="newsphotourl"
-          value={form.newsphotourl}
-          onChange={handleChange}
-          placeholder="newsphotourl"
-          required
-        />
-        <input
-          name="newsphotothumb"
-          value={form.newsphotothumb}
-          onChange={handleChange}
-          placeholder="newsphotothumb"
-          required
-        />
-        <input
-          name="newscategoryid"
-          value={form.newscategoryid}
-          onChange={handleChange}
-          placeholder="newscategoryid"
-          required
-        />
-
-        <div className="action-buttons">
-          <button type="submit" className="primary-button">
-            {isEdit ? "Update" : "Create"}
-          </button>
-          {isEdit && (
-            <button
-              type="button"
-              onClick={onCancel}
-              className="secondary-button"
-            >
-              Cancel
-            </button>
-          )}
-        </div>
-      </form>
-    </div>
+    <Dialog open={true} onClose={onCancel} maxWidth="md" fullWidth>
+      <DialogTitle fontWeight="bold">
+        {isEdit ? "Edit News Post" : "Add New News Post"}
+      </DialogTitle>
+      <DialogContent dividers>
+        <Grid container spacing={2} sx={{ mt: 1 }}>
+          <Grid size={{ xs: 12, sm: 8 }}>
+            <TextField
+              name="newsheading"
+              label="Heading / Title"
+              value={form.newsheading}
+              onChange={handleChange}
+              fullWidth
+              required
+            />
+          </Grid>
+          <Grid size={{ xs: 12, sm: 4 }}>
+            <TextField
+              name="newsdate"
+              label="Date"
+              type="date"
+              value={form.newsdate}
+              onChange={handleChange}
+              fullWidth
+              required
+              slotProps={{ inputLabel: { shrink: true } }}
+            />
+          </Grid>
+          <Grid size={{ xs: 12 }}>
+            <TextField
+              name="newssummary"
+              label="Summary"
+              value={form.newssummary}
+              onChange={handleChange}
+              fullWidth
+              multiline
+              rows={2}
+            />
+          </Grid>
+          <Grid size={{ xs: 12 }}>
+            <TextField
+              name="newscontent"
+              label="Content"
+              value={form.newscontent}
+              onChange={handleChange}
+              fullWidth
+              multiline
+              rows={6}
+              required
+            />
+          </Grid>
+          <Grid size={{ xs: 6, sm: 4 }}>
+            <TextField
+              name="newsid"
+              label="News ID"
+              value={form.newsid}
+              onChange={handleChange}
+              fullWidth
+              required
+            />
+          </Grid>
+          <Grid size={{ xs: 6, sm: 4 }}>
+            <TextField
+              name="newsindex"
+              label="Index Order"
+              type="number"
+              value={form.newsindex}
+              onChange={handleChange}
+              fullWidth
+            />
+          </Grid>
+          <Grid size={{ xs: 12, sm: 4 }}>
+            <TextField
+              name="newscategoryid"
+              label="Category ID"
+              value={form.newscategoryid}
+              onChange={handleChange}
+              fullWidth
+            />
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6 }}>
+            <TextField
+              name="newsphotourl"
+              label="Photo URL"
+              value={form.newsphotourl}
+              onChange={handleChange}
+              fullWidth
+            />
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6 }}>
+            <TextField
+              name="newsphotothumb"
+              label="Photo Thumbnail URL"
+              value={form.newsphotothumb}
+              onChange={handleChange}
+              fullWidth
+            />
+          </Grid>
+        </Grid>
+      </DialogContent>
+      <DialogActions sx={{ p: 2 }}>
+        <Button onClick={onCancel} color="inherit">
+          Cancel
+        </Button>
+        <Button onClick={handleSubmit} variant="contained" color="primary">
+          {isEdit ? "Update Post" : "Save Post"}
+        </Button>
+      </DialogActions>
+    </Dialog>
   );
 };
 

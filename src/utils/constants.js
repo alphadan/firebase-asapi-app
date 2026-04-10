@@ -6,8 +6,12 @@ export const COLLECTIONS = {
   newscategories: { orderBy: "newscategoryname", label: "News Categories" },
   newsposts: { orderBy: "newsid", label: "News Posts" },
   recentreviews: { orderBy: "reviewid", label: "Recent Reviews" },
-  reviews: { orderBy: "reviewid", label: "Reviews" },
+  reviews: { orderBy: "reviewid", label: "Reviews", canAdd: true },
   reviewstats: { orderBy: "reviewstatsid", label: "Review Stats" },
-  shipoverride: { orderBy: "productcode", label: "Ship Override" },
-  vendors: { orderBy: "vendorname", label: "Vendors" },
+  shipoverride: {
+    orderBy: "productcode",
+    label: "Ship Override",
+    canAdd: true,
+  },
+  vendors: { orderBy: "vendorname", label: "Vendors", canAdd: true },
 };

@@ -5,14 +5,24 @@ import {
   ListItem,
   ListItemButton,
   ListItemText,
+  ListItemIcon,
   Typography,
   Box,
   Divider,
 } from "@mui/material";
+import LogoutIcon from "@mui/icons-material/Logout";
 import { COLLECTIONS } from "../../utils/constants";
-import companyLogo from "../../images/alphabet-signs-logo-450.png";
+import companyLogo from "../../images/logo_icon_180.jpg";
+import FirebaseAuthService from "../../FirebaseAuthService";
+import { auth } from "../../FirebaseConfig";
 
 const drawerWidth = 240;
+
+const handleLogout = () => {
+  if (window.confirm("Are you sure you want to log out?")) {
+    FirebaseAuthService.logoutUser(auth);
+  }
+};
 
 const Sidebar = ({ currentFolder, onFolderChange }) => {
   return (
@@ -29,15 +39,15 @@ const Sidebar = ({ currentFolder, onFolderChange }) => {
         },
       }}
     >
-      <Box sx={{ p: 3, textAlign: "center" }}>
+      <Box sx={{ p: 1, textAlign: "center" }}>
         <Box
           component="img"
           src={companyLogo}
           alt="Alphabet Signs Logo"
           sx={{
-            width: "100%",
-            maxWidth: 180,
-            height: "auto",
+            height: 48, // Set fixed height
+            width: "auto", // Scales width accordingly
+            maxWidth: "100%", // Ensures it doesn't overflow
             mb: 1,
           }}
         />
@@ -80,6 +90,30 @@ const Sidebar = ({ currentFolder, onFolderChange }) => {
           </ListItem>
         ))}
       </List>
+      {/* Logout Button at the Bottom */}
+      <Box sx={{ p: 2, mt: "auto" }}>
+        <Divider sx={{ mb: 2 }} />
+        <ListItem disablePadding>
+          <ListItemButton
+            onClick={handleLogout}
+            sx={{
+              borderRadius: 2,
+              color: "text.primary",
+              "&:hover": { bgcolor: "rgba(211, 47, 47, 0.04)" },
+            }}
+          >
+            <ListItemIcon sx={{ color: "text.primary", minWidth: 40 }}>
+              <LogoutIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText
+              primary="Logout"
+              slotProps={{
+                primary: { fontWeight: 600, fontSize: "0.875rem" },
+              }}
+            />
+          </ListItemButton>
+        </ListItem>
+      </Box>
     </Drawer>
   );
 };
