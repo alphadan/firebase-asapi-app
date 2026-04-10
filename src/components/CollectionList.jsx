@@ -72,7 +72,6 @@ const FIELD_LABELS = {
 
   newsid: "News ID",
   newsindex: "Index",
-  newscategoryid: "Category ID",
   newscontent: "Content",
   newsheading: "Heading",
   newssummary: "Summary",
@@ -87,12 +86,6 @@ const FIELD_LABELS = {
   lastmerchantreviewid: "Last Merchant ID",
   total_reviews_formatted: "Total Reviews (Formatted)",
   total_google_eligible: "Google Eligible",
-  average_rating: "Average Rating",
-  fivestar: "5 Star",
-  fourstar: "4 Star",
-  threestar: "3 Star",
-  twostar: "2 Star",
-  onestar: "1 Star",
 };
 
 const formatValue = (value) => {
