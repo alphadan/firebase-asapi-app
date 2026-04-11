@@ -40,6 +40,7 @@ import AddEditReviewsForm from "../AddEditReviewsForm";
 import AddEditReviewStatsForm from "../AddEditReviewStatsForm";
 import AddEditShipOverrideForm from "../AddEditShipOverrideForm";
 import AddEditVendorForm from "../AddEditVendorForm";
+import FetchReviews from "../FetchReviews";
 
 const drawerWidth = 240;
 
@@ -55,8 +56,7 @@ const MainContent = ({ folder }) => {
 
   // State for Delete Confirmation
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
-  const [fetchingReviews, setFetchingReviews] = useState(false);
-  const [dateRange, setDateRange] = useState({ from: "", to: "" });
+  const [isFetchDialogOpen, setIsFetchDialogOpen] = useState(false);
 
   const capitalizedFolder = folder.charAt(0).toUpperCase() + folder.slice(1);
 
@@ -70,28 +70,6 @@ const MainContent = ({ folder }) => {
       );
     });
   }, [data, searchQuery]);
-
-  const handleFetchReviews = async (e) => {
-    e.preventDefault();
-    setFetchingReviews(true);
-    try {
-      const response = await fetch(
-        "https://us-central1-fir-asapi.cloudfunctions.net/api/fetchAndInsertReviews",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(dateRange),
-        },
-      );
-      if (!response.ok) throw new Error("Fetch failed");
-      showNotification("Successfully imported reviews!", "success");
-      refetch();
-    } catch (err) {
-      showNotification("Import failed: " + err.message, "error");
-    } finally {
-      setFetchingReviews(false);
-    }
-  };
 
   const handleDeleteClick = (id) => {
     setDeleteConfirmId(id);
@@ -225,6 +203,16 @@ const MainContent = ({ folder }) => {
                 "& .MuiOutlinedInput-notchedOutline": { border: "none" },
               }}
             />
+            {folder === "reviewstats" && (
+              <Button
+                variant="outlined"
+                color="secondary"
+                onClick={() => setIsFetchDialogOpen(true)}
+                sx={{ textTransform: "none", fontWeight: "bold" }}
+              >
+                Fetch Reviews
+              </Button>
+            )}
             {canAdd && (
               <Button
                 variant="contained"
@@ -272,52 +260,6 @@ const MainContent = ({ folder }) => {
       <Toolbar sx={{ mb: { xs: 8, sm: 2 } }} />
 
       <Container maxWidth="xl" sx={{ py: 4 }}>
-        {/* Special Fetch Form Logic */}
-        {folder === "reviewstats" && (
-          <Paper sx={{ p: 3, mb: 4, borderRadius: 2 }} elevation={1}>
-            <Typography variant="h6" gutterBottom fontWeight="bold">
-              Fetch Reviews from ShopperApproved
-            </Typography>
-            <Stack
-              direction={{ xs: "column", sm: "row" }}
-              spacing={2}
-              component="form"
-              onSubmit={handleFetchReviews}
-              alignItems="center"
-            >
-              <TextField
-                size="small"
-                label="From (YYYY-MM-DD)"
-                value={dateRange.from}
-                onChange={(e) =>
-                  setDateRange({ ...dateRange, from: e.target.value })
-                }
-                required
-                sx={{ width: { xs: "100%", sm: "auto" } }}
-              />
-              <TextField
-                size="small"
-                label="To (YYYY-MM-DD)"
-                value={dateRange.to}
-                onChange={(e) =>
-                  setDateRange({ ...dateRange, to: e.target.value })
-                }
-                required
-                sx={{ width: { xs: "100%", sm: "auto" } }}
-              />
-              <Button
-                type="submit"
-                variant="contained"
-                color="secondary"
-                disabled={fetchingReviews}
-                sx={{ width: { xs: "100%", sm: "auto" } }}
-              >
-                {fetchingReviews ? "Fetching..." : "Fetch Reviews"}
-              </Button>
-            </Stack>
-          </Paper>
-        )}
-
         {error && (
           <Alert severity="error" sx={{ mb: 3 }}>
             {error.message}
@@ -413,6 +355,12 @@ const MainContent = ({ folder }) => {
             Next
           </Button>
         </Stack>
+
+        <FetchReviews
+          open={isFetchDialogOpen}
+          onClose={() => setIsFetchDialogOpen(false)}
+          onRefresh={refetch}
+        />
 
         {/* Edit/Add Form Dialog */}
         {renderForm()}

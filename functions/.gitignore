@@ -1,1 +1,14 @@
+# functions/.gitignore
+
+# Dependencies
 node_modules/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+firebase-debug.log*
+
+# Local configuration
+.env
+.env.local

@@ -1,19 +1,20 @@
 // functions/alphabetApi.js
-const functions = require("firebase-functions");
-const admin = require("firebase-admin");
-const express = require("express");
-const cors = require("cors");
-const fetch = require("node-fetch");
+import express from "express";
+import cors from "cors";
+import admin from "firebase-admin";
+import { getFirestore } from "firebase-admin/firestore";
+import { logger } from "firebase-functions/v2";
+import { defineString } from "firebase-functions/params";
 
-// Load .env only in local emulator
-if (process.env.FUNCTIONS_EMULATOR) {
-  require("dotenv").config();
+if (admin.apps.length === 0) {
+  admin.initializeApp();
 }
+const db = getFirestore();
 
-// DO NOT CALL admin.initializeApp() — index.js already did it
-const db = admin.firestore();
+const SHOPPERAPPROVED_TOKEN = defineString("SHOPPERAPPROVED_TOKEN");
 
 const app = express();
+
 
 // CORS
 const allowedOrigins = [
@@ -21,6 +22,7 @@ const allowedOrigins = [
   "https://fir-asapi.web.app",
   "https://www.alphabetsigns.com",
 ];
+
 app.use(
   cors({
     origin: (origin, callback) => {
@@ -32,105 +34,86 @@ app.use(
     },
     methods: ["GET", "POST"],
     allowedHeaders: ["Content-Type"],
-  })
+  }),
 );
 
 app.use(express.json());
 
-// === HELPER: Get Token Safely ===
-const getShopperApprovedToken = () => {
-  return process.env.FUNCTIONS_EMULATOR
-    ? process.env.SHOPPERAPPROVED_TOKEN
-    : functions.config().shopperapproved?.token;
-};
-
 // === ENDPOINT: Fetch & Insert Reviews (Order + Product-level) ===
 app.post("/fetchAndInsertReviews", async (req, res) => {
   const { from, to } = req.body;
+  const token = SHOPPERAPPROVED_TOKEN.value();
 
+  // Input Validation
   if (!from || !to) {
-    functions.logger.warn("Missing dates", { from, to });
-    return res.status(400).json({ error: "from and to required" });
+    logger.warn("Missing dates in request", { from, to });
+    return res.status(400).json({ error: "from and to dates are required" });
   }
 
   const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
   if (!dateRegex.test(from) || !dateRegex.test(to)) {
-    functions.logger.warn("Invalid date format", { from, to });
-    return res.status(400).json({ error: "Use YYYY-MM-DD" });
+    return res
+      .status(400)
+      .json({ error: "Invalid date format. Use YYYY-MM-DD" });
   }
 
   try {
-    const token = getShopperApprovedToken();
-    if (!token) {
-      functions.logger.error("Missing ShopperApproved token");
-      return res.status(500).json({ error: "API token not configured" });
-    }
+    logger.info(`Starting review fetch: ${from} to ${to}`);
 
     // -----------------------------------------------------------------
-    // 1. ORDER-LEVEL REVIEWS (your original endpoint)
+    // OPTIMIZATION: Parallel Fetching
+    // Fetch both Order and Product reviews simultaneously using native fetch
     // -----------------------------------------------------------------
     const orderUrl = `https://api.shopperapproved.com/reviews/23071?token=${token}&from=${from}&to=${to}&xml=false`;
-    const orderResp = await fetch(orderUrl);
-    if (!orderResp.ok) {
-      const txt = await orderResp.text();
-      functions.logger.error("Order-level SA failed", {
-        status: orderResp.status,
-        body: txt.substring(0, 500),
-      });
-      return res.status(500).json({ error: "Order-level SA API error" });
-    }
-    const orderRaw = await orderResp.json();
-    const orderEntries = Object.entries(orderRaw);
-
-    // -----------------------------------------------------------------
-    // 2. PRODUCT-LEVEL REVIEWS (new endpoint)
-    // -----------------------------------------------------------------
     const productUrl = `https://api.shopperapproved.com/products/reviews/23071?token=${token}&from=${from}&to=${to}&xml=false`;
-    const productResp = await fetch(productUrl);
-    if (!productResp.ok) {
-      const txt = await productResp.text();
-      functions.logger.error("Product-level SA failed", {
-        status: productResp.status,
-        body: txt.substring(0, 500),
+
+    const [orderResp, productResp] = await Promise.all([
+      fetch(orderUrl),
+      fetch(productUrl),
+    ]);
+
+    if (!orderResp.ok || !productResp.ok) {
+      logger.error("External API Failure", {
+        orderStatus: orderResp.status,
+        productStatus: productResp.status,
       });
-      return res.status(500).json({ error: "Product-level SA API error" });
+      return res.status(500).json({ error: "ShopperApproved API error" });
     }
-    const productRaw = await productResp.json();
+
+    const [orderRaw, productRaw] = await Promise.all([
+      orderResp.json(),
+      productResp.json(),
+    ]);
+
+    const orderEntries = Object.entries(orderRaw);
     const productEntries = Object.entries(productRaw);
 
+    // SAFETY: Firestore batches are limited to 500 ops.
+    if (entries.length > 490) {
+      return res.status(413).json({
+        error:
+          "Too many reviews for one batch. Please use a smaller date range.",
+      });
+    }
+
     // -----------------------------------------------------------------
-    // 3. PREPARE BATCH + STATS
+    // PREPARE BATCH + STATS
     // -----------------------------------------------------------------
     const statsRef = db.collection("reviewstats").doc("XeMc8VdY9hdiBqX5kLjJ");
     const snap = await statsRef.get();
     const currentCount = snap.exists ? snap.data()?.reviewscount || 0 : 0;
-    let newCount = currentCount;
 
+    let newCount = currentCount;
     const batch = db.batch();
-    let inserted = 0;
+    let insertedCount = 0;
 
     const processEntries = (entries, type) => {
       for (const [key, review] of entries) {
-        const hasComments =
-          review.comments && review.comments.trim().length > 0;
-        const hasHeadline = review.heading && review.heading.trim().length > 0;
-
-        if (!hasComments && !hasHeadline) {
-          functions.logger.debug(
-            `SKIPPED ${type} review (no headline/comment)`,
-            { key }
-          );
-          continue;
-        }
+        // Skip empty reviews
+        if (!review.comments?.trim() && !review.heading?.trim()) continue;
 
         newCount++;
-        inserted++;
-
-        const reviewDate =
-          review.review_date &&
-          /^\d{4}-\d{1,2}-\d{1,2}$/.test(review.review_date)
-            ? review.review_date
-            : "2026-01-01";
+        insertedCount++;
 
         const newDoc = {
           reviewid: newCount.toString(),
@@ -138,74 +121,68 @@ app.post("/fetchAndInsertReviews", async (req, res) => {
           reviewmerchantreviewid: key.toString(),
           reviewnickname: (review.display_name || "Anonymous").substring(0, 30),
           revieworderid: (review.order_id || "").substring(0, 50),
-          reviewcreatedate: reviewDate,
+          reviewcreatedate:
+            review.review_date || new Date().toISOString().split("T")[0],
           reviewpageid: (review.product_id || "").substring(0, 50),
           reviewoverallrating: Math.min(
             Math.max(Number(review.rating) || 0, 0),
-            5
+            5,
           ),
           reviewcomments: (review.comments || "").substring(0, 2000),
           reviewheadline: (review.heading || "").substring(0, 200),
           reviewstatus: "Approved",
           reviewconfirmstatus: "Verified Buyer",
-          reviewresponse: null,
           reviewlanguage: "en",
           reviewlocation: (review.location || "").substring(0, 50),
-
-          // NEW FIELD – tells us the source
-          reviewtype: type, // "order" or "product"
+          reviewtype: type,
         };
 
         const docRef = db.collection("reviews").doc();
+        logger.info("Batch review", newDoc);
         batch.set(docRef, newDoc);
       }
     };
 
-    // Process both sets
     processEntries(orderEntries, "order");
     processEntries(productEntries, "product");
 
-    // -----------------------------------------------------------------
-    // 4. UPDATE STATS (once per request)
-    // -----------------------------------------------------------------
+    // Update Global Stats
     const today = new Date().toISOString().split("T")[0];
+    const lastSAId = orderEntries.length
+      ? orderEntries[orderEntries.length - 1][0]
+      : productEntries.length
+        ? productEntries[productEntries.length - 1][0]
+        : "";
+
     batch.set(
       statsRef,
       {
         reviewscount: newCount,
         lastquerydate: to,
-        lastmerchantreviewid: orderEntries.length
-          ? orderEntries[orderEntries.length - 1][0]
-          : productEntries[productEntries.length - 1]?.[0] || "",
+        lastmerchantreviewid: lastSAId,
         lastupdated: today,
       },
-      { merge: true }
+      { merge: true },
     );
 
     await batch.commit();
 
-    functions.logger.info("SUCCESS - both sources", {
-      inserted,
-      orderCount: orderEntries.length,
-      productCount: productEntries.length,
-      totalInserted: inserted,
-      reviewscount: newCount,
+    logger.info("Batch commit successful", {
+      inserted: insertedCount,
+      total: newCount,
     });
 
     res.json({
-      inserted,
+      success: true,
+      inserted: insertedCount,
       orderCount: orderEntries.length,
       productCount: productEntries.length,
       reviewscount: newCount,
-      lastquerydate: to,
       lastupdated: today,
     });
   } catch (error) {
-    functions.logger.error("CRASH in fetchAndInsertReviews", {
-      message: error.message,
-      stack: error.stack,
-    });
-    res.status(500).json({ error: "Server error" });
+    logger.error("CRASH in fetchAndInsertReviews", error);
+    res.status(500).json({ error: "Internal Server Error" });
   }
 });
 
@@ -220,13 +197,22 @@ app.get("/readDocuments", async (req, res) => {
   }
 
   try {
-    let query = db.collection(folder);
+    let collectionRef = db.collection(folder);
+    let query = collectionRef;
+
     if (field && value !== undefined) {
-      query = query.where(field, "==", value);
+      // 1. Handle Type Conversion:
+      // URL parameters are always strings. If the value is purely numeric,
+      // we convert it to a Number so Firestore can find it in numeric fields.
+      const queryValue = value && !isNaN(value) ? Number(value) : value;
+
+      query = query.where(field, "==", queryValue);
     }
 
     const snapshot = await query.get();
     const data = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+
+    logger.info(`Read ${data.length} docs from ${folder}`, { field, value });
 
     res.json({
       success: true,
@@ -236,7 +222,7 @@ app.get("/readDocuments", async (req, res) => {
       data,
     });
   } catch (error) {
-    functions.logger.error("[readDocuments] ERROR", { error: error.message });
+    logger.error(`[readDocuments] ERROR in ${folder}`, error);
     res.status(500).json({ error: "Failed to read documents" });
   }
 });
@@ -244,170 +230,130 @@ app.get("/readDocuments", async (req, res) => {
 // === ENDPOINT: Product Summary ===
 app.get("/prodSummary", async (req, res) => {
   const { productcode } = req.query;
-  if (!productcode) {
-    return res
-      .status(400)
-      .json({ error: "Missing required parameter: productcode" });
-  }
+  const token = SHOPPERAPPROVED_TOKEN.value();
 
-  const token = getShopperApprovedToken();
-  if (!token) {
-    functions.logger.error("Missing ShopperApproved token in prodSummary");
-    return res.status(500).json({ error: "API token not configured" });
-  }
+  if (!productcode)
+    return res.status(400).json({ error: "productcode required" });
 
   const saurl = `https://api.shopperapproved.com/aggregates/products/23071/${productcode}?token=${token}&xml=false`;
 
   try {
     const response = await fetch(saurl);
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error(
-        `ShopperApproved API error: ${response.status} - ${text.substring(
-          0,
-          200
-        )}`
-      );
-    }
-
     const data = await response.json();
-    if (!data.product_totals) {
-      return res.status(404).json({ error: "No data found for this product" });
-    }
 
-    const prodSummary = {
+    if (!data.product_totals)
+      return res.status(404).json({ error: "Product not found" });
+
+    res.json({
       total_reviews: data.product_totals.total_reviews || 0,
       average_rating: parseFloat(
-        data.product_totals.average_rating || 0
+        data.product_totals.average_rating || 0,
       ).toFixed(1),
-    };
-
-    res.json(prodSummary);
-  } catch (error) {
-    functions.logger.error("[prodSummary]:ERROR", {
-      productcode,
-      message: error.message,
     });
-    res.status(500).json({ error: "Failed to fetch product summary" });
+  } catch (error) {
+    logger.error("Error in prodSummary", error);
+    res.status(500).json({ error: "Failed to fetch summary" });
   }
 });
 
 // === ENDPOINT: Read Review Stats ===
 app.get("/readReviewStats", async (req, res) => {
-  const token = getShopperApprovedToken();
-  if (!token) {
-    functions.logger.error("Missing ShopperApproved token in readReviewStats");
-    return res.status(500).json({ error: "API token not configured" });
-  }
-
+  const token = SHOPPERAPPROVED_TOKEN.value();
   const saurl = `https://api.shopperapproved.com/aggregates/reviews/23071?token=${token}&xml=false`;
 
   try {
     const response = await fetch(saurl);
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error(
-        `ShopperApproved API error: ${response.status} - ${text.substring(
-          0,
-          200
-        )}`
-      );
-    }
-
     const data = await response.json();
-    if (typeof data.total_reviews === "undefined") {
-      return res
-        .status(404)
-        .json({ error: "No review stats returned from API" });
-    }
 
-    const reviewStats = {
+    res.json({
       total_reviews: parseInt(data.total_reviews, 10) || 0,
       average_rating: parseFloat(data.average_rating || 0).toFixed(1),
-    };
-
-    res.json(reviewStats);
-  } catch (error) {
-    functions.logger.error("[readReviewStats]:ERROR", {
-      message: error.message,
     });
-    res.status(500).json({ error: "Failed to fetch review stats" });
+  } catch (error) {
+    logger.error("Error in readReviewStats", error);
+    res.status(500).json({ error: "Failed to fetch stats" });
   }
 });
 
 // === ENDPOINT: Read Blog Categories ===
 app.get("/readBlogCategories", async (req, res) => {
   const { blogfolder, bloguri, newscategoryid } = req.query;
+
+  // Default to blogcategories if no folder provided
   const folder = blogfolder || "blogcategories";
+
+  // Select the correct field to sort by based on the folder
   const orderByField =
     folder === "blogcategories" ? "blogcategoryname" : "newscategoryname";
 
   try {
-    let snapshot;
+    let collectionRef = db.collection(folder);
+    let query;
+
+    // 1. Logic for filtering by URI (Blogs)
     if (bloguri && folder === "blogcategories") {
-      snapshot = await db
-        .collection(folder)
-        .where("bloguri", "==", bloguri)
-        .get();
-    } else if (newscategoryid && folder === "newscategories") {
-      snapshot = await db
-        .collection(folder)
-        .where("newscategoryid", "==", newscategoryid)
-        .get();
-    } else {
-      snapshot = await db.collection(folder).orderBy(orderByField, "asc").get();
+      query = collectionRef.where("bloguri", "==", bloguri);
+    }
+    // 2. Logic for filtering by Category ID (News)
+    else if (newscategoryid && folder === "newscategories") {
+      query = collectionRef.where("newscategoryid", "==", newscategoryid);
+    }
+    // 3. Default: List all categories sorted alphabetically
+    else {
+      query = collectionRef.orderBy(orderByField, "asc");
     }
 
+    const snapshot = await query.get();
     const data = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+
+    logger.info(`Fetched ${data.length} categories from ${folder}`);
+
     res.json({ success: true, folder, count: data.length, data });
   } catch (error) {
-    functions.logger.error("[readBlogCategories]:ERROR", {
-      message: error.message,
-    });
-    res.status(500).json({ error: "Failed to read blog categories" });
+    logger.error("[readBlogCategories]:ERROR", error);
+    res.status(500).json({ error: "Failed to read categories" });
   }
 });
 
 // === ENDPOINT: Read Blog Posts ===
 app.get("/readBlogPosts", async (req, res) => {
   const { blogfolder, posturi, postcategorycode } = req.query;
+
+  // Default to blogposts if no folder specified
   const folder = blogfolder || "blogposts";
   const orderByField = folder === "blogposts" ? "postindex" : "newsindex";
 
   try {
-    let snapshot;
-    if (posturi && folder === "blogposts") {
-      snapshot = await db
-        .collection(folder)
-        .where("posturi", "==", posturi)
-        .get();
-    } else if (posturi && folder === "newsposts") {
-      snapshot = await db
-        .collection(folder)
-        .where("newsid", "==", posturi)
-        .get();
-    } else if (postcategorycode && folder === "blogposts") {
-      snapshot = await db
-        .collection(folder)
-        .where("postcategorycode", "==", postcategorycode)
-        .get();
-    } else if (postcategorycode && folder === "newsposts") {
-      snapshot = await db
-        .collection(folder)
-        .where("newscategoryid", "==", postcategorycode)
-        .get();
-    } else {
-      snapshot = await db
-        .collection(folder)
-        .orderBy(orderByField, "desc")
-        .limit(5)
-        .get();
+    const collectionRef = db.collection(folder);
+    let query = collectionRef;
+
+    // 1. Filter by specific Post URI or News ID
+    if (posturi) {
+      const uriField = folder === "blogposts" ? "posturi" : "newsid";
+      query = query.where(uriField, "==", posturi);
+    }
+    // 2. Filter by Category Code
+    else if (postcategorycode) {
+      const categoryField =
+        folder === "blogposts" ? "postcategorycode" : "newscategoryid";
+      query = query.where(categoryField, "==", postcategorycode);
+    }
+    // 3. Default: Latest 5 posts sorted by index
+    else {
+      query = query.orderBy(orderByField, "desc").limit(5);
     }
 
+    const snapshot = await query.get();
     const data = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+
+    logger.info(`Read ${data.length} posts from ${folder}`, {
+      posturi,
+      postcategorycode,
+    });
+
     res.json({ success: true, folder, count: data.length, data });
   } catch (error) {
-    functions.logger.error("[readBlogPosts]:ERROR", { message: error.message });
+    logger.error(`[readBlogPosts]:ERROR in ${folder}`, error);
     res.status(500).json({ error: "Failed to read blog posts" });
   }
 });
@@ -415,16 +361,21 @@ app.get("/readBlogPosts", async (req, res) => {
 // === ENDPOINT: Read Recent Reviews ===
 app.get("/readRecentReviews", async (req, res) => {
   try {
+    // 1. Fetch recent reviews sorted by ID
     const snapshot = await db
       .collection("recentreviews")
       .orderBy("reviewid", "desc")
       .get();
+
     const data = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+
+    // 2. Structured logging for the V2 console
+    logger.info(`Fetched ${data.length} recent reviews`);
+
     res.json({ success: true, count: data.length, data });
   } catch (error) {
-    functions.logger.error("[readRecentReviews]:ERROR", {
-      message: error.message,
-    });
+    // 3. Log the full error stack for debugging
+    logger.error("[readRecentReviews]:ERROR", error);
     res.status(500).json({ error: "Failed to read recent reviews" });
   }
 });
@@ -432,36 +383,50 @@ app.get("/readRecentReviews", async (req, res) => {
 // === ENDPOINT: Read Product Reviews ===
 app.get("/readProductReviews", async (req, res) => {
   const { prodcode, limit: limitStr } = req.query;
+
+  // 1. Validation
   if (!prodcode) {
     return res
       .status(400)
       .json({ error: "Missing required parameter: prodcode" });
   }
 
-  const limit = Math.min(parseInt(limitStr, 10) || 24, 100);
+  // 2. Parse and Bound the limit
+  const fetchLimit = Math.min(parseInt(String(limitStr), 10) || 24, 100);
 
   try {
+    // 3. Query the 'reviews' collection by product code
     const snapshot = await db
       .collection("reviews")
       .where("reviewpageid", "==", prodcode)
       .orderBy("reviewid", "desc")
-      .limit(limit)
+      .limit(fetchLimit)
       .get();
 
     const data = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-    res.json({ success: true, prodcode, limit, count: data.length, data });
-  } catch (error) {
-    functions.logger.error("[readProductReviews]:ERROR", {
+
+    // 4. Structured V2 logging
+    logger.info(`Read ${data.length} reviews for product: ${prodcode}`);
+
+    res.json({
+      success: true,
       prodcode,
-      message: error.message,
+      limit: fetchLimit,
+      count: data.length,
+      data,
+    });
+  } catch (error) {
+    // 5. Professional Error Reporting
+    logger.error("[readProductReviews]:ERROR", {
+      prodcode,
+      error: error.message,
     });
     res.status(500).json({ error: "Failed to read product reviews" });
   }
 });
 
-// === ROOT ===
 app.get("/", (req, res) => {
-  res.json({ message: "Alphabet API v2 - Ready" });
+  res.json({ message: "Alphabet API v2 - Ready", status: "Healthy" });
 });
 
-module.exports = app;
+export default app;

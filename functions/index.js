@@ -1,11 +1,15 @@
-// functions/index.js
-const functions = require("firebase-functions");
-const admin = require("firebase-admin");
+import { onRequest } from "firebase-functions/v2/https";
+// Import the app - this will now trigger the initialization inside alphabetApi.js
+import apiApp from "./alphabetApi.js";
 
-// Initialize Firebase Admin SDK **ONCE**
-admin.initializeApp();
-
-const api = require("./alphabetApi");
-
-// Export the Express app as a single HTTPS function
-exports.api = functions.https.onRequest(api);
+/**
+ * Export the Express app as a V2 HTTPS function.
+ */
+export const api = onRequest(
+  {
+    region: "us-central1",
+    maxInstances: 10,
+    concurrency: 80,
+  },
+  apiApp,
+);
