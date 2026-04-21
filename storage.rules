@@ -1,0 +1,27 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Rules for the Image Submission Portal
+    match /images/{imageId} {
+      // 1. Only authenticated users can upload (includes Anonymous)
+      // 2. File must be less than 1MB
+      // 3. Must be an image or a PDF
+      allow write: if request.auth != null
+                   && request.resource.size < 1 * 1024 * 1024
+                   && (
+                     request.resource.contentType.matches('image/.*') ||
+                     request.resource.contentType == 'application/pdf'
+                   );
+
+      // Allow public reading so Zapier or your website can display the images
+      allow read: if true;
+    }
+
+    // Default: Lock down everything else
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

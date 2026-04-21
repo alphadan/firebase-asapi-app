@@ -4,21 +4,21 @@ import cors from "cors";
 import admin from "firebase-admin";
 import { getFirestore } from "firebase-admin/firestore";
 import { logger } from "firebase-functions/v2";
-import { defineString } from "firebase-functions/params";
+import { defineSecret } from "firebase-functions/params";
 
 if (admin.apps.length === 0) {
   admin.initializeApp();
 }
 const db = getFirestore();
 
-const SHOPPERAPPROVED_TOKEN = defineString("SHOPPERAPPROVED_TOKEN");
+const SHOPPERAPPROVED_TOKEN = defineSecret("SHOPPERAPPROVED_TOKEN");
 
 const app = express();
-
 
 // CORS
 const allowedOrigins = [
   "http://localhost:3000",
+  "http://localhost:5173",
   "https://fir-asapi.web.app",
   "https://www.alphabetsigns.com",
 ];
@@ -87,9 +87,10 @@ app.post("/fetchAndInsertReviews", async (req, res) => {
 
     const orderEntries = Object.entries(orderRaw);
     const productEntries = Object.entries(productRaw);
+    const totalEntries = orderEntries.length + productEntries.length;
 
     // SAFETY: Firestore batches are limited to 500 ops.
-    if (entries.length > 490) {
+    if (totalEntries > 490) {
       return res.status(413).json({
         error:
           "Too many reviews for one batch. Please use a smaller date range.",
@@ -106,32 +107,73 @@ app.post("/fetchAndInsertReviews", async (req, res) => {
     let newCount = currentCount;
     const batch = db.batch();
     let insertedCount = 0;
+    const processedOrderIds = new Set();
 
     const processEntries = (entries, type) => {
       for (const [key, review] of entries) {
+        const orderId = (review.order_id || "").toString().trim();
+
+        // Skip order-level reviews if we already have a product-level review for this order
+        if (type === "order" && orderId && processedOrderIds.has(orderId)) {
+          logger.info(
+            `Skipping duplicate order-level review for Order ID: ${orderId}`,
+          );
+          continue;
+        }
+
         // Skip empty reviews
         if (!review.comments?.trim() && !review.heading?.trim()) continue;
 
         newCount++;
         insertedCount++;
+        if (orderId) processedOrderIds.add(orderId);
 
         const newDoc = {
           reviewid: newCount.toString(),
           reviewindex: newCount,
           reviewmerchantreviewid: key.toString(),
-          reviewnickname: (review.display_name || "Anonymous").substring(0, 30),
-          revieworderid: (review.order_id || "").substring(0, 50),
-          reviewcreatedate:
-            review.review_date || new Date().toISOString().split("T")[0],
-          reviewpageid: (review.product_id || "").substring(0, 50),
+          reviewnickname: ((name) => {
+            const parts = name.trim().split(/\s+/);
+            const first =
+              parts[0].charAt(0).toUpperCase() +
+              parts[0].slice(1).toLowerCase();
+            if (parts.length > 1) {
+              const lastInitial = parts[parts.length - 1]
+                .charAt(0)
+                .toUpperCase();
+              return `${first} ${lastInitial}`;
+            }
+            return first;
+          })(review.display_name || "Anonymous").substring(0, 30),
+          revieworderid: orderId.substring(0, 50),
+          reviewcreatedate: new Date(
+            review.review_date || review.date || Date.now(),
+          )
+            .toISOString()
+            .split("T")[0],
+          reviewpageid: (
+            review.product_id ||
+            review.productId ||
+            review.pageid ||
+            ""
+          )
+            .toString()
+            .substring(0, 50),
           reviewoverallrating: Math.min(
-            Math.max(Number(review.rating) || 0, 0),
+            Math.max(
+              Number(review.rating ?? review.star ?? review.score ?? 5),
+              0,
+            ),
             5,
           ),
           reviewcomments: (review.comments || "").substring(0, 2000),
-          reviewheadline: (review.heading || "").substring(0, 200),
+          reviewheadline: (review.heading || review.comments || "").substring(
+            0,
+            200,
+          ),
           reviewstatus: "Approved",
           reviewconfirmstatus: "Verified Buyer",
+          reviewresponse: null,
           reviewlanguage: "en",
           reviewlocation: (review.location || "").substring(0, 50),
           reviewtype: type,
@@ -143,8 +185,8 @@ app.post("/fetchAndInsertReviews", async (req, res) => {
       }
     };
 
-    processEntries(orderEntries, "order");
     processEntries(productEntries, "product");
+    processEntries(orderEntries, "order");
 
     // Update Global Stats
     const today = new Date().toISOString().split("T")[0];
@@ -241,8 +283,10 @@ app.get("/prodSummary", async (req, res) => {
     const response = await fetch(saurl);
     const data = await response.json();
 
-    if (!data.product_totals)
+    if (!data.product_totals) {
+      logger.error("[prodSummary]Product not found: ", saurl);
       return res.status(404).json({ error: "Product not found" });
+    }
 
     res.json({
       total_reviews: data.product_totals.total_reviews || 0,
@@ -399,11 +443,23 @@ app.get("/readProductReviews", async (req, res) => {
     const snapshot = await db
       .collection("reviews")
       .where("reviewpageid", "==", prodcode)
-      .orderBy("reviewid", "desc")
+      .orderBy("reviewindex", "desc")
       .limit(fetchLimit)
       .get();
 
     const data = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    // 1. Calculate num_good (Rating >= 4)
+    const num_good = data.filter(
+      (r) => Number(r.reviewoverallrating) >= 4,
+    ).length;
+
+    // 2. Calculate average_rating
+    const totalRating = data.reduce(
+      (sum, r) => sum + Number(r.reviewoverallrating || 0),
+      0,
+    );
+    const average_rating =
+      data.length > 0 ? (totalRating / data.length).toFixed(1) : 0;
 
     // 4. Structured V2 logging
     logger.info(`Read ${data.length} reviews for product: ${prodcode}`);
@@ -412,7 +468,9 @@ app.get("/readProductReviews", async (req, res) => {
       success: true,
       prodcode,
       limit: fetchLimit,
-      count: data.length,
+      total_reviews: data.length,
+      num_good: num_good,
+      average_rating: average_rating,
       data,
     });
   } catch (error) {

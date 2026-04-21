@@ -41,7 +41,11 @@ const AuthGuard = ({ children }) => {
 
   if (error) return <Box sx={{ p: 4 }}>Error: {error}</Box>;
 
-  return user ? children : <LoginForm existingUser={user} />;
+  return user && !user.isAnonymous ? (
+    children
+  ) : (
+    <LoginForm existingUser={user} />
+  );
 };
 
 export default AuthGuard;

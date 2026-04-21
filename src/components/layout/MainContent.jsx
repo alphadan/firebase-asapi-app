@@ -40,6 +40,7 @@ import AddEditReviewsForm from "../AddEditReviewsForm";
 import AddEditReviewStatsForm from "../AddEditReviewStatsForm";
 import AddEditShipOverrideForm from "../AddEditShipOverrideForm";
 import AddEditVendorForm from "../AddEditVendorForm";
+import AddEditSubmissionsForm from "../AddEditSubmissionsForm";
 import FetchReviews from "../FetchReviews";
 
 const drawerWidth = 240;
@@ -57,6 +58,7 @@ const MainContent = ({ folder }) => {
   // State for Delete Confirmation
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
   const [isFetchDialogOpen, setIsFetchDialogOpen] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   const capitalizedFolder = folder.charAt(0).toUpperCase() + folder.slice(1);
 
@@ -90,6 +92,20 @@ const MainContent = ({ folder }) => {
     setEditingItem(null);
     showNotification(`${capitalizedFolder} entry saved!`, "success");
     refetch();
+  };
+
+  const handleSyncRecent = async () => {
+    setIsSyncing(true);
+    try {
+      showNotification("Syncing the latest 10 reviews...", "info");
+      await FirestoreDBService.updateRecentReviews(); // Calls your existing service
+      showNotification("Recent reviews updated successfully!", "success");
+      refetch(); // Refresh the list to show new data
+    } catch (err) {
+      showNotification("Sync failed: " + err.message, "error");
+    } finally {
+      setIsSyncing(false);
+    }
   };
 
   const renderForm = () => {
@@ -126,6 +142,8 @@ const MainContent = ({ folder }) => {
             handleSetReviewDocument={FirestoreDBService.updateReviewDocument}
           />
         );
+      case "submissions":
+        return <AddEditSubmissionsForm {...commonProps} />;
       default:
         return null;
     }
@@ -203,6 +221,17 @@ const MainContent = ({ folder }) => {
                 "& .MuiOutlinedInput-notchedOutline": { border: "none" },
               }}
             />
+            {folder === "recentreviews" && (
+              <Button
+                variant="outlined"
+                color="secondary"
+                onClick={handleSyncRecent}
+                disabled={isSyncing}
+                sx={{ textTransform: "none", fontWeight: "bold" }}
+              >
+                {isSyncing ? "Syncing..." : "Sync Latest 10"}
+              </Button>
+            )}
             {folder === "reviewstats" && (
               <Button
                 variant="outlined"

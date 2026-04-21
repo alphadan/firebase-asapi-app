@@ -14,4 +14,9 @@ export const COLLECTIONS = {
     canAdd: true,
   },
   vendors: { orderBy: "vendorname", label: "Vendors", canAdd: true },
+  submissions: {
+    orderBy: "timestamp",
+    label: "User Submissions",
+    canAdd: false,
+  },
 };
