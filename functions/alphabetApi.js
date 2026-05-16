@@ -133,18 +133,27 @@ app.post("/fetchAndInsertReviews", async (req, res) => {
           reviewindex: newCount,
           reviewmerchantreviewid: key.toString(),
           reviewnickname: ((name) => {
-            const parts = name.trim().split(/\s+/);
+            const original = name || "Anonymous";
+            const parts = original.trim().split(/\s+/);
             const first =
               parts[0].charAt(0).toUpperCase() +
               parts[0].slice(1).toLowerCase();
+
+            let formatted = first;
             if (parts.length > 1) {
               const lastInitial = parts[parts.length - 1]
                 .charAt(0)
                 .toUpperCase();
-              return `${first} ${lastInitial}`;
+              formatted = `${first} ${lastInitial}`;
+              logger.info(`Formatting name: "${first}"`);
+              logger.info(`Formatting name: "${lastInitial}"`);
             }
-            return first;
-          })(review.display_name || "Anonymous").substring(0, 30),
+
+            // This will show up in your Firebase Google Cloud logs
+            logger.info(`Formatting name: "${original}" -> "${formatted}"`);
+
+            return formatted;
+          })(review.display_name).substring(0, 30),
           revieworderid: orderId.substring(0, 50),
           reviewcreatedate: new Date(
             review.review_date || review.date || Date.now(),
@@ -424,62 +433,52 @@ app.get("/readRecentReviews", async (req, res) => {
   }
 });
 
-// === ENDPOINT: Read Product Reviews ===
+// === ENDPOINT: Read Product Reviews (SEO Optimized) ===
 app.get("/readProductReviews", async (req, res) => {
-  const { prodcode, limit: limitStr } = req.query;
-
-  // 1. Validation
-  if (!prodcode) {
-    return res
-      .status(400)
-      .json({ error: "Missing required parameter: prodcode" });
-  }
-
-  // 2. Parse and Bound the limit
-  const fetchLimit = Math.min(parseInt(String(limitStr), 10) || 24, 100);
+  let { prodcode } = req.query;
+  if (prodcode) prodcode = decodeURIComponent(prodcode).trim();
+  if (!prodcode) return res.status(400).json({ error: "prodcode required" });
 
   try {
-    // 3. Query the 'reviews' collection by product code
+    // 1. Fetch ALL reviews for this product
+    // Note: We remove the .limit(24) so you have everything for JSON-LD
     const snapshot = await db
       .collection("reviews")
       .where("reviewpageid", "==", prodcode)
-      .orderBy("reviewindex", "desc")
-      .limit(fetchLimit)
+      .orderBy("reviewid", "desc")
       .get();
 
-    const data = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-    // 1. Calculate num_good (Rating >= 4)
-    const num_good = data.filter(
+    const all_data = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+
+    // 2. Calculate Stats from the complete list
+    const total_reviews = all_data.length;
+    const num_good = all_data.filter(
       (r) => Number(r.reviewoverallrating) >= 4,
     ).length;
-
-    // 2. Calculate average_rating
-    const totalRating = data.reduce(
+    const totalSum = all_data.reduce(
       (sum, r) => sum + Number(r.reviewoverallrating || 0),
       0,
     );
     const average_rating =
-      data.length > 0 ? (totalRating / data.length).toFixed(1) : 0;
+      total_reviews > 0 ? (totalSum / total_reviews).toFixed(1) : "0.0";
 
-    // 4. Structured V2 logging
-    logger.info(`Read ${data.length} reviews for product: ${prodcode}`);
-
+    // 3. Return everything in one organized package
     res.json({
       success: true,
       prodcode,
-      limit: fetchLimit,
-      total_reviews: data.length,
-      num_good: num_good,
-      average_rating: average_rating,
-      data,
+      total_reviews, // Use for Page Header
+      num_good,
+      average_rating, // Use for Page Header
+      full_list: all_data, // Use for JSON-LD in the <head>
+      // We can even provide a convenience slice for the visible UI
+      display_list: all_data.slice(0, 24),
     });
   } catch (error) {
-    // 5. Professional Error Reporting
-    logger.error("[readProductReviews]:ERROR", {
-      prodcode,
-      error: error.message,
-    });
-    res.status(500).json({ error: "Failed to read product reviews" });
+    logger.error("SEO Fetch Error", error);
+    res.status(500).json({ error: error.message });
   }
 });
 
